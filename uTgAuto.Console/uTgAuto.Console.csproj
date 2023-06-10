@@ -1,0 +1,119 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net6.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Content Include="node_modules\encoding\node_modules\iconv-lite\.idea\codeStyles\codeStyleConfig.xml" />
+    <Content Include="node_modules\encoding\node_modules\iconv-lite\.idea\codeStyles\Project.xml" />
+    <Content Include="node_modules\encoding\node_modules\iconv-lite\.idea\inspectionProfiles\Project_Default.xml" />
+    <Content Include="node_modules\encoding\node_modules\iconv-lite\.idea\modules.xml" />
+    <Content Include="node_modules\encoding\node_modules\iconv-lite\.idea\vcs.xml" />
+    <Content Include="node_modules\unique-filename\.nyc_output\54942.json" />
+    <Content Include="node_modules\unique-filename\.nyc_output\54944.json" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="node_modules\%40mapbox\node-pre-gyp\node_modules\.bin\nopt" />
+    <None Include="node_modules\%40mapbox\node-pre-gyp\node_modules\.bin\nopt.cmd" />
+    <None Include="node_modules\%40mapbox\node-pre-gyp\node_modules\.bin\nopt.ps1" />
+    <None Include="node_modules\%40mapbox\node-pre-gyp\node_modules\.bin\semver" />
+    <None Include="node_modules\%40mapbox\node-pre-gyp\node_modules\.bin\semver.cmd" />
+    <None Include="node_modules\%40mapbox\node-pre-gyp\node_modules\.bin\semver.ps1" />
+    <None Include="node_modules\%40npmcli\fs\node_modules\.bin\semver" />
+    <None Include="node_modules\%40npmcli\fs\node_modules\.bin\semver.cmd" />
+    <None Include="node_modules\%40npmcli\fs\node_modules\.bin\semver.ps1" />
+    <None Include="node_modules\.bin\color-support" />
+    <None Include="node_modules\.bin\color-support.cmd" />
+    <None Include="node_modules\.bin\color-support.ps1" />
+    <None Include="node_modules\.bin\mime" />
+    <None Include="node_modules\.bin\mime.cmd" />
+    <None Include="node_modules\.bin\mime.ps1" />
+    <None Include="node_modules\.bin\mkdirp" />
+    <None Include="node_modules\.bin\mkdirp.cmd" />
+    <None Include="node_modules\.bin\mkdirp.ps1" />
+    <None Include="node_modules\.bin\node-gyp" />
+    <None Include="node_modules\.bin\node-gyp.cmd" />
+    <None Include="node_modules\.bin\node-gyp.ps1" />
+    <None Include="node_modules\.bin\node-pre-gyp" />
+    <None Include="node_modules\.bin\node-pre-gyp.cmd" />
+    <None Include="node_modules\.bin\node-pre-gyp.ps1" />
+    <None Include="node_modules\.bin\node-which" />
+    <None Include="node_modules\.bin\node-which.cmd" />
+    <None Include="node_modules\.bin\node-which.ps1" />
+    <None Include="node_modules\.bin\nodemon" />
+    <None Include="node_modules\.bin\nodemon.cmd" />
+    <None Include="node_modules\.bin\nodemon.ps1" />
+    <None Include="node_modules\.bin\nodetouch" />
+    <None Include="node_modules\.bin\nodetouch.cmd" />
+    <None Include="node_modules\.bin\nodetouch.ps1" />
+    <None Include="node_modules\.bin\nopt" />
+    <None Include="node_modules\.bin\nopt.cmd" />
+    <None Include="node_modules\.bin\nopt.ps1" />
+    <None Include="node_modules\.bin\rimraf" />
+    <None Include="node_modules\.bin\rimraf.cmd" />
+    <None Include="node_modules\.bin\rimraf.ps1" />
+    <None Include="node_modules\.bin\semver" />
+    <None Include="node_modules\.bin\semver.cmd" />
+    <None Include="node_modules\.bin\semver.ps1" />
+    <None Include="node_modules\balanced-match\.github\FUNDING.yml" />
+    <None Include="node_modules\call-bind\.github\FUNDING.yml" />
+    <None Include="node_modules\encoding\node_modules\iconv-lite\.github\dependabot.yml" />
+    <None Include="node_modules\encoding\node_modules\iconv-lite\.idea\iconv-lite.iml" />
+    <None Include="node_modules\get-intrinsic\.github\FUNDING.yml" />
+    <None Include="node_modules\has-proto\.github\FUNDING.yml" />
+    <None Include="node_modules\has-symbols\.github\FUNDING.yml" />
+    <None Include="node_modules\make-dir\node_modules\.bin\semver" />
+    <None Include="node_modules\make-dir\node_modules\.bin\semver.cmd" />
+    <None Include="node_modules\make-dir\node_modules\.bin\semver.ps1" />
+    <None Include="node_modules\node-gyp\.github\ISSUE_TEMPLATE.md" />
+    <None Include="node_modules\node-gyp\.github\PULL_REQUEST_TEMPLATE.md" />
+    <None Include="node_modules\node-gyp\.github\workflows\release-please.yml" />
+    <None Include="node_modules\node-gyp\.github\workflows\tests.yml" />
+    <None Include="node_modules\node-gyp\.github\workflows\visual-studio.yml" />
+    <None Include="node_modules\node-gyp\gyp\.github\workflows\node-gyp.yml" />
+    <None Include="node_modules\node-gyp\gyp\.github\workflows\nodejs-windows.yml" />
+    <None Include="node_modules\node-gyp\gyp\.github\workflows\Python_tests.yml" />
+    <None Include="node_modules\node-gyp\gyp\.github\workflows\release-please.yml" />
+    <None Include="node_modules\node-gyp\node_modules\.bin\nopt" />
+    <None Include="node_modules\node-gyp\node_modules\.bin\nopt.cmd" />
+    <None Include="node_modules\node-gyp\node_modules\.bin\nopt.ps1" />
+    <None Include="node_modules\node-gyp\node_modules\.bin\semver" />
+    <None Include="node_modules\node-gyp\node_modules\.bin\semver.cmd" />
+    <None Include="node_modules\node-gyp\node_modules\.bin\semver.ps1" />
+    <None Include="node_modules\object-inspect\.github\FUNDING.yml" />
+    <None Include="node_modules\qs\.github\FUNDING.yml" />
+    <None Include="node_modules\side-channel\.github\FUNDING.yml" />
+    <None Include="node_modules\simple-update-notifier\node_modules\.bin\semver" />
+    <None Include="node_modules\simple-update-notifier\node_modules\.bin\semver.cmd" />
+    <None Include="node_modules\simple-update-notifier\node_modules\.bin\semver.ps1" />
+    <None Include="node_modules\undefsafe\.github\workflows\release.yml" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\uTgAuto.Services\uTgAuto.Services.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Update="index.html">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Update="index.js">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Update="package-lock.json">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Update="package.json">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+	  <Content Include="node_modules\**">
+		  <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	  </Content>
+  </ItemGroup>
+
+</Project>

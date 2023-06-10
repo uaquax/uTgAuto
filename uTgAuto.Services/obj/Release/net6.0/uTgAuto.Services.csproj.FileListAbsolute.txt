@@ -1,0 +1,16 @@
+U:\Dev\Both\uTgAuto\uTgAuto.Services\bin\Release\net6.0\.env
+U:\Dev\Both\uTgAuto\uTgAuto.Services\bin\Release\net6.0\NLog.config
+U:\Dev\Both\uTgAuto\uTgAuto.Services\bin\Release\net6.0\uTgAuto.Services.deps.json
+U:\Dev\Both\uTgAuto\uTgAuto.Services\bin\Release\net6.0\uTgAuto.Services.runtimeconfig.json
+U:\Dev\Both\uTgAuto\uTgAuto.Services\bin\Release\net6.0\uTgAuto.Services.dll
+U:\Dev\Both\uTgAuto\uTgAuto.Services\bin\Release\net6.0\uTgAuto.Services.pdb
+U:\Dev\Both\uTgAuto\uTgAuto.Services\obj\Release\net6.0\uTgAuto.Services.csproj.AssemblyReference.cache
+U:\Dev\Both\uTgAuto\uTgAuto.Services\obj\Release\net6.0\uTgAuto.Services.GeneratedMSBuildEditorConfig.editorconfig
+U:\Dev\Both\uTgAuto\uTgAuto.Services\obj\Release\net6.0\uTgAuto.Services.AssemblyInfoInputs.cache
+U:\Dev\Both\uTgAuto\uTgAuto.Services\obj\Release\net6.0\uTgAuto.Services.AssemblyInfo.cs
+U:\Dev\Both\uTgAuto\uTgAuto.Services\obj\Release\net6.0\uTgAuto.Services.csproj.CoreCompileInputs.cache
+U:\Dev\Both\uTgAuto\uTgAuto.Services\obj\Release\net6.0\uTgAuto.Services.dll
+U:\Dev\Both\uTgAuto\uTgAuto.Services\obj\Release\net6.0\refint\uTgAuto.Services.dll
+U:\Dev\Both\uTgAuto\uTgAuto.Services\obj\Release\net6.0\uTgAuto.Services.pdb
+U:\Dev\Both\uTgAuto\uTgAuto.Services\obj\Release\net6.0\uTgAuto.Services.genruntimeconfig.cache
+U:\Dev\Both\uTgAuto\uTgAuto.Services\obj\Release\net6.0\ref\uTgAuto.Services.dll
