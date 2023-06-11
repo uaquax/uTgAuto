@@ -12,6 +12,7 @@
         public int Credits { get; set; } = 1;
         public UserState State { get; set; } = UserState.Start;
         public List<Message> Messages { get; set; } = new List<Message>();
+        public List<ParallelMessage> ParallelMessages { get; set; } = new List<ParallelMessage>();
         public TelegramService? TelegramService { get; set; }
     }
 
@@ -26,11 +27,15 @@
         MessageText,
         MessageTarget,
         MessageIsWait,
+        MessageAskAI,
+        MessageInformation,
         MessageTargets,
         MessageAnswer,
-        MessageAskAI,
         MessageSleepTime,
         MessagesConfirm,
+        ParallelMessageTargets,
+        ParallelMessageAnswer,
+        ParallelMessageConfirm,
         SignInTelegramService,
         Ready,
         Running

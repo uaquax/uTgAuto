@@ -1,4 +1,6 @@
 ﻿using Newtonsoft.Json;
+using System;
+using System.Collections.Generic;
 using System.Data.SQLite;
 using uTgAuto.Services.Models;
 
@@ -31,6 +33,7 @@ namespace uTgAuto.Services
                             Phone TEXT,
                             Password TEXT,
                             Messages JSON,
+                            ParallelMessages JSON,
                             Code INTEGER,
                             Credits INTEGER,
                             State INTEGER
@@ -106,7 +109,8 @@ namespace uTgAuto.Services
                                     Code = Convert.ToString(reader["Code"]) ?? string.Empty,
                                     Credits = Convert.ToInt32(reader["Credits"]),
                                     State = (UserState)Convert.ToInt32(reader["State"]),
-                                    Messages = JsonConvert.DeserializeObject<List<Message>>((string)reader["Messages"])!
+                                    Messages = JsonConvert.DeserializeObject<List<Message>>((string)reader["Messages"])!,
+                                    ParallelMessages = JsonConvert.DeserializeObject<List<ParallelMessage>>((string)reader["ParallelMessages"])!
                                 };
 
                                 userList.Add(user);
@@ -154,7 +158,8 @@ namespace uTgAuto.Services
                                     Code = Convert.ToString(reader["Code"]) ?? string.Empty,
                                     Credits = Convert.ToInt32(reader["Credits"]),
                                     State = (UserState)Convert.ToInt32(reader["State"]),
-                                    Messages = JsonConvert.DeserializeObject<List<Message>>((string)reader["Messages"])!
+                                    Messages = JsonConvert.DeserializeObject<List<Message>>((string)reader["Messages"])!,
+                                    ParallelMessages = JsonConvert.DeserializeObject<List<ParallelMessage>>((string)reader["ParallelMessages"])!
                                 };
                             }
                         }
@@ -169,7 +174,6 @@ namespace uTgAuto.Services
             return user!;
         }
 
-
         public void AddUser(User user)
         {
             try
@@ -179,8 +183,8 @@ namespace uTgAuto.Services
                     connection.Open();
 
                     string insertQuery = @"
-                INSERT INTO User (ChatID, ApiID, ApiHash, Phone, Password, Code, Credits, State, Messages)
-                VALUES (@ChatID, @ApiID, @ApiHash, @Phone, @Password, @Code, @Credits, @State, @Messages);";
+                INSERT INTO User (ChatID, ApiID, ApiHash, Phone, Password, Code, Credits, State, Messages, ParallelMessages)
+                VALUES (@ChatID, @ApiID, @ApiHash, @Phone, @Password, @Code, @Credits, @State, @Messages, @ParallelMessages);";
 
                     using (var command = new SQLiteCommand(insertQuery, connection))
                     {
@@ -193,6 +197,7 @@ namespace uTgAuto.Services
                         command.Parameters.AddWithValue("@Credits", user.Credits);
                         command.Parameters.AddWithValue("@State", (int)user.State);
                         command.Parameters.AddWithValue("@Messages", JsonConvert.SerializeObject(user.Messages));
+                        command.Parameters.AddWithValue("@ParallelMessages", JsonConvert.SerializeObject(user.ParallelMessages));
 
                         command.ExecuteNonQuery();
                     }
@@ -228,7 +233,6 @@ namespace uTgAuto.Services
             }
         }
 
-
         public void UpdateUser(User user)
         {
             try
@@ -246,7 +250,8 @@ namespace uTgAuto.Services
                             Password = @password,
                             Credits = @credits,
                             State = @state,
-                            Messages = @messages
+                            Messages = @messages,
+                            ParallelMessages = @parallelMessages
                         WHERE ChatID = @chatID;";
 
                     using (var command = new SQLiteCommand(updateQuery, connection))
@@ -259,6 +264,7 @@ namespace uTgAuto.Services
                         command.Parameters.AddWithValue("@credits", user.Credits);
                         command.Parameters.AddWithValue("@state", (int)user.State);
                         command.Parameters.AddWithValue("@messages", JsonConvert.SerializeObject(user.Messages));
+                        command.Parameters.AddWithValue("@parallelMessages", JsonConvert.SerializeObject(user.ParallelMessages));
 
                         command.ExecuteNonQuery();
                     }

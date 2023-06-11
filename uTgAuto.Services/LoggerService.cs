@@ -1,6 +1,5 @@
 ﻿using NLog;
 using NLog.Config;
-using NLog.Targets;
 
 public static class LoggerService
 {
@@ -13,8 +12,21 @@ public static class LoggerService
 
     private static void ConfigureLogger()
     {
-        LogManager.Configuration = new XmlLoggingConfiguration("nlog.config");
+        LoggingConfiguration config = new XmlLoggingConfiguration("NLog.config");
+
+#if DEBUG
+        config.Variables["minLogLevel"] = "Trace";
+#else
+        config.Variables["minLogLevel"] = "Info";
+#endif
+
+        LogManager.Configuration = config;
         logger = LogManager.GetCurrentClassLogger();
+    }
+
+    public static void Trace(string message)
+    {
+        logger!.Trace(message);
     }
 
     public static void Debug(string message)

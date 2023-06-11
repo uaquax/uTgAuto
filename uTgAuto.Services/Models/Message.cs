@@ -8,6 +8,13 @@
         public string? Target { get; set; }
         public bool IsWait { get; set; } = false;
         public bool AskAI { get; set; } = false;
-        public TimeSpan SleepTime { get; set; } = new TimeSpan(0, 0, 1);
+        public string Information { get; set; } = string.Empty;
+        public TimeSpan SleepTime { get; set; } = new TimeSpan(0, 0, new Random().Next(1, 4));
+    }
+
+    public class ParallelMessage
+    {
+        public List<string> Targets { get; set; } = new List<string>() { "@string" };
+        public string? Answer { get; set; }
     }
 }

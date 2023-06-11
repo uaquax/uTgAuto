@@ -1,5 +1,6 @@
 ﻿using System.Diagnostics.Contracts;
 using System.Text.RegularExpressions;
+using Telegram.Bot.Types;
 using TL;
 using uTgAuto.Services.Models;
 using WTelegram;
@@ -33,12 +34,12 @@ namespace uTgAuto.Services
         public bool IsConnected { get; set; } = false;
 
         private bool _isInChat = false;
-        private AIService? _aiService;
         private State _state = State.Work;
         private Client? _client;
         private static UserTL? _user;
         private Message? _waitingMessage;
         private List<Message> _messages = new List<Message>();
+        private List<ParallelMessage> _parallelMessages = new List<ParallelMessage>();
         private readonly Dictionary<long, UserTL> _users = new();
         private readonly Dictionary<long, ChatBase> _chats = new();
         private readonly Auth? _auth;
@@ -46,7 +47,7 @@ namespace uTgAuto.Services
         private int _messageIndex = 0;
         private Flood? _flood;
 
-        public TelegramService(List<Message> messages, string apiId, string apiHash, string phoneNumber, string password, long chatID)
+        public TelegramService(List<Message> messages, List<ParallelMessage> parallelWaitingMessages, string apiId, string apiHash, string phoneNumber, string password, long chatID)
         {
             try
             {
@@ -57,6 +58,7 @@ namespace uTgAuto.Services
                 //#endif
                 Helpers.Log = (lvl, str) => { };
                 _messages = messages;
+                _parallelMessages = parallelWaitingMessages;
                 _auth = new Auth(int.Parse(apiId), apiHash, phoneNumber, password, chatID);
 
                 if (apiId == null || apiHash == null || phoneNumber == null)
@@ -300,17 +302,97 @@ namespace uTgAuto.Services
                 switch (messageBase)
                 {
                     case TL.Message message:
-                        if (message.message.Contains("/search"))
+                        try
                         {
                             var resolved = await _client.Contacts_ResolveUsername(_messages[_messageIndex]!.Target!.Replace("@", string.Empty));
                             if (Peer(message.peer_id) != Peer(resolved.peer)) return;
-
-                            _state = State.Work;
-                            _waitingMessage = null;
-                            _messageIndex = 0;
-                            _isInChat = false;
-                            break;
                         }
+                        catch { }
+
+                        LoggerService.Trace($"TelegramSerivce.displayMessage(): case TL.Message {message.from_id} -> {message.message} \n\t-> {_waitingMessage}");
+
+                        if (_parallelMessages != null)
+                        {
+                            foreach (var pMessage in _parallelMessages)
+                            {
+                                var targets = pMessage?.Targets;
+                                var isInt = targets?.Find(target => "@int".Contains(target.ToLower())) == null ? false : true;
+                                var isString = targets?.Find(target => "@string".Contains(target.ToLower())) == null ? false : true;
+                                var isLink = targets?.Find(target => "@link".Contains(target.ToLower())) == null ? false : true;
+                                var isYes = targets?.Find(target => "@yes".Contains(target.ToLower())) == null ? false : true;
+                                var isNo = targets?.Find(target => "@no".Contains(target.ToLower())) == null ? false : true;
+                                var isRestart = targets?.Find(targets => "@restart".Contains(targets.ToLower())) == null ? false : true;
+
+                                var resolved = await _client.Contacts_ResolveUsername(_waitingMessage?.Target?.Replace("@", string.Empty));
+
+                                bool isContains = false;
+
+                                if (isRestart)
+                                {
+                                    if (Peer(message.peer_id) != Peer(resolved.peer)) return;
+
+                                    _state = State.Work;
+                                    _waitingMessage = null;
+                                    _messageIndex = 0;
+                                    _isInChat = false;
+                                    return;
+                                }
+
+                                if (isInt == false
+                                    && isString == false
+                                    && isLink == false
+                                    && isYes == false
+                                    && isNo == false
+                                    && isRestart == false)
+                                {
+                                    isContains = targets?.Find(target => message.message.ToLower().Contains(target.ToLower())) == null ? false : true;
+                                }
+                                else
+                                {
+                                    if (isInt)
+                                    {
+                                        isContains = Regex.IsMatch(message.message, @"\d");
+                                    }
+                                    else if (isString)
+                                    {
+                                        isContains = true;
+                                    }
+                                    else if (isLink)
+                                    {
+                                        isContains = message.message.ToLower().Contains("http") || message.message.ToLower().Contains("t.me") || message.message.ToLower().Contains("@") || message.message.ToLower().Contains("@");
+                                    }
+                                    else if (isYes)
+                                    {
+                                        isContains = yesList.Any(yesWord => message.message.Contains(yesWord));
+                                    }
+                                    else if (isNo)
+                                    {
+                                        isContains = noList.Any(noWord => message.message.Contains(noWord));
+                                    }
+                                }
+                                if (isContains && pMessage!.Answer != "@none")
+                                {
+                                    if (_messageIndex == 1) _isInChat = true;
+                                    else _isInChat = false;
+                                    if (_waitingMessage!.Answer!.Contains("@ai"))
+                                    {
+                                        var aiAnswer = await AIService.Ask(_waitingMessage!.Information, message.message);
+                                        await _client!.SendMessageAsync(resolved, aiAnswer, reply_to_msg_id: message.ID);
+                                        _state = State.Work;
+                                        _waitingMessage = null;
+                                    }
+                                    else
+                                    {
+                                        await _client!.SendMessageAsync(resolved, _waitingMessage?.Answer, reply_to_msg_id: message.ID);
+                                        _state = State.Work;
+                                        _waitingMessage = null;
+                                    }
+                                }
+                            }
+                        }
+
+                        LoggerService.Trace($"TelegramSerivce.displayMessage(): _waitingMessage ( {_waitingMessage} ) != null && _waitingMessage.Target ( {_waitingMessage!.Target} ) != null");
+                        
                         if (_waitingMessage != null
                             && _waitingMessage.Target != null)
                         {
@@ -324,13 +406,14 @@ namespace uTgAuto.Services
                                 var resolved = await _client.Contacts_ResolveUsername(_messages[_messageIndex]!.Target!.Replace("@", string.Empty));
                                 if (Peer(message.peer_id) != Peer(resolved.peer)) return;
 
-                                var aiAnswer = await _aiService!.Ask(message.message);
+                                var aiAnswer = await AIService.Ask(_waitingMessage!.Information, message.message);
 
                                 await _client!.SendMessageAsync(resolved, aiAnswer, reply_to_msg_id: message.ID);
                             }
-                        }
-                        LoggerService.Debug($"\n{Peer(message.peer_id)} ( {message.peer_id} ) -> {message.message}\n");
 
+                        }
+
+                        LoggerService.Trace($"TelegramSerivce.displayMessage():if (_state( {_state} ) == State.Wait && message.peer_id.ID ( {message.Peer.ID} ) != _user?.id ( {_user?.id} ) )");
                         if (_state == State.Wait && message.peer_id.ID != _user?.id)
                         {
                             var targets = _waitingMessage?.Targets;
@@ -375,13 +458,14 @@ namespace uTgAuto.Services
                                     isContains = noList.Any(noWord => message.message.Contains(noWord));
                                 }
                             }
-                            if (isContains)
+                            if (isContains && _waitingMessage!.Answer != "@none")
                             {
                                 if (_messageIndex == 1) _isInChat = true;
                                 else _isInChat = false;
+
                                 if (_waitingMessage!.Answer!.Contains("@ai"))
                                 {
-                                    var aiAnswer = await _aiService!.Ask(message.message);
+                                    var aiAnswer = await AIService.Ask(_waitingMessage!.Information, message.message);
                                     await _client!.SendMessageAsync(resolved, aiAnswer, reply_to_msg_id: message.ID);
                                     _state = State.Work;
                                     _waitingMessage = null;
@@ -399,7 +483,7 @@ namespace uTgAuto.Services
                                 {
                                     if (Peer(message.peer_id) != Peer(resolved.peer)) return;
 
-                                    var aiAnswer = await _aiService!.Ask(message.message);
+                                    var aiAnswer = await AIService.Ask(_waitingMessage!.Information, message.message);
 
                                     await _client!.SendMessageAsync(resolved, aiAnswer, reply_to_msg_id: message.ID);
                                 }
@@ -412,7 +496,8 @@ namespace uTgAuto.Services
                                 var resolved = await _client.Contacts_ResolveUsername(_messages[_messageIndex]!.Target!.Replace("@", string.Empty));
                                 if (Peer(message.peer_id) != Peer(resolved.peer)) return;
 
-                                var aiAnswer = await _aiService!.Ask(message.message);
+                                var aiAnswer = await AIService.Ask(_waitingMessage!.Information, message.message);
+                                LoggerService.Trace($"TelegramService.displaymessage(): {aiAnswer} Sent via AI");
                                 await _client!.SendMessageAsync(resolved, aiAnswer, reply_to_msg_id: message.ID);
                             }
                         }

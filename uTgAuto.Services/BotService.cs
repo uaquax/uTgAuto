@@ -54,7 +54,7 @@ namespace uTgAuto.Services
                 var me = await _client.GetMeAsync();
                 try
                 {
-                    LoggerService.Info($"Start listening for @{me.Username} \nInformation: {Thread.CurrentThread.ManagedThreadId}\t{Thread.CurrentThread.Name}");
+                    LoggerService.Info($"Start listening for @{me.Username}");
                     LoggerService.Info("Deleting all Session files...");
 
                     foreach (string file in Directory.GetFiles(Environment.CurrentDirectory, ".\\Sessions\\*.session"))
@@ -66,13 +66,14 @@ namespace uTgAuto.Services
                         }
                         catch (Exception ex)
                         {
-                           LoggerService.Error($"Error deleting file: {file}. {ex.Message}");
+                            LoggerService.Error($"Error deleting file: {file}. {ex.Message}");
                         }
                     }
                 }
-                catch
+                catch (Exception ex)
                 {
-                    LoggerService.Info($"Start listening for @{me.Username}");
+                    if (!ex.ToString().Contains("Sessions"))
+                        LoggerService.Debug(ex.ToString());
                 }
 
                 /* Go Through All Users to Say that They Need to connect */
@@ -141,7 +142,7 @@ namespace uTgAuto.Services
                                                 await _client.SendTextMessageAsync(user.ChatID, "Ваш код получен! /start чтобы запустить бота");
                                             
                                                  user.State = UserState.Ready;
-                                    user.TelegramService = new TelegramService(user.Messages, user.ApiID.ToString(), user.ApiHash, user.Phone, user.Password, user.ChatID);
+                                    user.TelegramService = new TelegramService(user.Messages, user.ParallelMessages, user.ApiID.ToString(), user.ApiHash, user.Phone, user.Password, user.ChatID);
                                     var result = user.TelegramService.Connect().Result;
                                     
                                     if (result != null && result.Message!.Contains("FLOOD"))
@@ -266,7 +267,7 @@ namespace uTgAuto.Services
                                     catch { }
 
                                     user.State = UserState.Ready;
-                                    user.TelegramService = new TelegramService(user.Messages, user.ApiID.ToString(), user.ApiHash, user.Phone, user.Password, user.ChatID);
+                                    user.TelegramService = new TelegramService(user.Messages, user.ParallelMessages, user.ApiID.ToString(), user.ApiHash, user.Phone, user.Password, user.ChatID);
                                     var result = user.TelegramService.Connect().Result;
                                     if (result != null && result.Message!.Contains("FLOOD"))
                                     {
@@ -364,8 +365,29 @@ namespace uTgAuto.Services
                                 user!.State = UserState.MessageText;
                                 databaseService.UpdateUser(user);
 
-                                await _client.SendTextMessageAsync(user.ChatID, $"Поздравляю ваше сообщение успешно создано! Вот как выглядят настройки вашего сообщения:```\n{JsonConvert.SerializeObject(user.Messages)}```");
                                 await _client.SendTextMessageAsync(user.ChatID, "Укажите текст который ваш бот будет отправлять. Например: Привет!");
+
+                                return;
+                            }
+                            catch (Exception ex)
+                            {
+                                LoggerService.Error($"BotService.handleUpdateAsync: [{ex.GetLine()}] [{ex.Source}]\n\t{ex.Message}");
+                                await _client.SendTextMessageAsync(user!.ChatID, "Что-то пошло не так!");
+                            }
+                        }
+
+                        #endregion
+
+                        #region /new_parallel_message
+
+                        if (message.Text.Contains("/new_parallel_message"))
+                        {
+                            try
+                            {
+                                user!.State = UserState.ParallelMessageTargets;
+                                databaseService.UpdateUser(user);
+
+                                await _client.SendTextMessageAsync(user.ChatID, "Пример 1(Бот реагирует на сообщения содержащие слова привет, ку,хай: привет,ку,хай\nПример 2(Бот реагирует на сообщения содержащие цифры): @int\nПример 3(Бот реагирует на ЛЮБЫЕ сообщения): @string\nПример 4(Бот реагирует на сообщения содержащие ССЫЛКУ или НИКНЕЙМ): @link\nПример 5(Бот реагирует на сообщения содержащие утверждение(да, конечно, 100%, естественно, и тп. ): @yes\nПример 6(Бот реагирует на сообщения содержащие отрицание(нет, неа, и тп.)): @no\n\nВажно! \nЕсли вы хотите отвечать на любое сообщение, то введите @string \nЕсли вы хотите чтобы бот отвечал на любые сообщения содержащие цифры, то введите @int\nЕсли вы хотите чтобы бот отвечал на любые сообщения содержащие ссылку(или телеграм аккаунт), то введите @link\nЕсли вы хотите чтобы бот отвечал на любые сообщения содержащие утверждение(да), то введите @yes\nЕсли вы хотите чтобы бот отвечал на любые сообщения содержащие отрицание(нет), то введите @no\n\nВведите текст на который будет отвечать бот(разделяя через запятую БЕЗ ПРОБЕЛА): ");
 
                                 return;
                             }
@@ -401,6 +423,29 @@ namespace uTgAuto.Services
 
                         #endregion
 
+                        #region /reset_parallel_messages
+
+                        if (message.Text.Contains("/reset_parallel_messages"))
+                        {
+                            try
+                            {
+                                user!.State = UserState.Ready;
+                                user!.ParallelMessages.Clear();
+                                databaseService.UpdateUser(user);
+
+                                await _client.SendTextMessageAsync(user.ChatID, "Вы очистили паралельные сообщения! /new_parallel_message чтобы добавить новое!");
+
+                                return;
+                            }
+                            catch (Exception ex)
+                            {
+                                LoggerService.Error($"BotService.handleUpdateAsync: [{ex.GetLine()}] [{ex.Source}]\n\t{ex.Message}");
+                                await _client.SendTextMessageAsync(user!.ChatID, "Что-то пошло не так!");
+                            }
+                        }
+
+                        #endregion
+
                         #region SignInTelegramService
 
                         if (user!.State == UserState.SignInTelegramService)
@@ -416,7 +461,7 @@ namespace uTgAuto.Services
                                 try
                                 {
                                     user.State = UserState.Ready;
-                                    user.TelegramService = new TelegramService(user.Messages, user.ApiID.ToString(), user.ApiHash, user.Phone, user.Password, user.ChatID);
+                                    user.TelegramService = new TelegramService(user.Messages, user.ParallelMessages, user.ApiID.ToString(), user.ApiHash, user.Phone, user.Password, user.ChatID);
                                     var result = user.TelegramService.Connect().Result;
 
                                     if (result != null && result.Message!.Contains("FLOOD"))
@@ -631,7 +676,7 @@ namespace uTgAuto.Services
                                 user.State = UserState.MessageAnswer;
                                 databaseService.UpdateUser(user);
 
-                                await _client.SendTextMessageAsync(user.ChatID, $"Бот будет отвечать на все сообщения содержщие: {message.Text}\n\n Введите текст который бот будет отправлять при получении сообщения содержащее указаные вами символы: ");
+                                await _client.SendTextMessageAsync(user.ChatID, $"Бот будет отвечать на все сообщения содержщие: {message.Text}\n\n Важно! Если вы хотите чтобы на сообщение ответила нейронная сеть, то введите @ai.\n\nЕсли вы хотите чтобы после получения данного сообщения бот начал отправлять сообщения заново с первого сообщения, то введите: @restart\n\nВведите текст который бот будет отправлять при получении сообщения содержащее указаные вами символы: ");
                             }
                             catch
                             {
@@ -647,10 +692,10 @@ namespace uTgAuto.Services
                         if (user.State == UserState.MessageAnswer)
                         {
                             user.Messages.LastOrDefault()!.Answer = message.Text;
-                            user.State = UserState.MessageSleepTime;
+                            user.State = UserState.MessageAskAI;
                             databaseService.UpdateUser(user);
 
-                            await _client.SendTextMessageAsync(user.ChatID, $"Бот будет отвечать на все сообщения содержщие указаные вами символы этим текстом: \n\nСколько времени вы хотите подождать перед отправлением следующего сообщения? (по-умолчанию: 1 сек.) Введите время ожидания в СЕКУНДАХ(пример: 50):");
+                            await _client.SendTextMessageAsync(user.ChatID, $"Бот будет отвечать на все сообщения содержщие указаные вами символы этим текстом: \n\nВы хотите чтобы бот отвечал на полученное сообщение с помощью нейронной сети?(да/нет)");
                             return;
                         }
 
@@ -660,7 +705,41 @@ namespace uTgAuto.Services
 
                         if (user.State == UserState.MessageAskAI)
                         {
+                            var isYes = TelegramService.yesList.Any(yesWord => message.Text.ToLower().Contains(yesWord));
+                            var isNo = TelegramService.noList.Any(noWord => message.Text.Contains(noWord));
 
+                            if (isYes)
+                            {
+                                user.Messages.LastOrDefault()!.AskAI = true;
+                                user.State = UserState.MessageInformation;
+                                databaseService.UpdateUser(user);
+
+                                await _client.SendTextMessageAsync(user.ChatID, $"Пример: \n\nКомпания: Google\nТелефоне: +4614352345\nАдрес компании: Улица Шанпиньона 54\n...\n\nВведите информацию на основе которой нейронная сеть будет отвечать: ");
+                            }
+                            else
+                            {
+                                user.Messages.LastOrDefault()!.Information = message.Text;
+                                user.State = UserState.MessageSleepTime;
+                                databaseService.UpdateUser(user);
+
+                                await _client.SendTextMessageAsync(user.ChatID, $"\n\nСколько времени вы хотите подождать перед отправлением следующего сообщения? (по-умолчанию: 1 сек.) Введите время ожидания в СЕКУНДАХ(пример: 50):");
+                            }
+                            return;
+                        }
+
+                        #endregion
+
+                        #region MessageInformation
+
+                        if (user.State == UserState.MessageInformation)
+                        {
+                            user.Messages.LastOrDefault()!.Information = message.Text;
+                            user.State = UserState.MessageSleepTime;
+                            databaseService.UpdateUser(user);
+
+                            await _client.SendTextMessageAsync(user.ChatID, $"Готово! Нейронная сеть будет отвечать на основе этой информации:\n{user.Messages.LastOrDefault()!.Information}");
+                            await _client.SendTextMessageAsync(user.ChatID, $"\n\nСколько времени вы хотите подождать перед отправлением следующего сообщения? (по-умолчанию: 1 сек.) Введите время ожидания в СЕКУНДАХ(пример: 50):");
+                            return;
                         }
 
                         #endregion
@@ -671,11 +750,11 @@ namespace uTgAuto.Services
                         {
                             try
                             {
-                                user.Messages.LastOrDefault()!.SleepTime = TimeSpan.FromSeconds(double.Parse(message.Text));
+                                user.Messages.LastOrDefault()!.SleepTime = TimeSpan.FromSeconds(new Random().Next(int.Parse(message.Text), int.Parse(message.Text)+1));
                                 user.State = UserState.MessagesConfirm;
                                 databaseService.UpdateUser(user);
 
-                                await _client.SendTextMessageAsync(user.ChatID, $"Ваше сообщение готово! Вот как выглядят её настройки: ```\n{JsonConvert.SerializeObject(user.Messages)}```\n\n Чтобы начать заново введите /reset_messages \n\nВы хотите добавить ещё одно сообщение? (да/нет)");
+                                await _client.SendTextMessageAsync(user.ChatID, $"Ваше сообщение готово! Вот как выглядят её настройки: \n\n{JsonConvert.SerializeObject(user.Messages)}\n\n Чтобы начать заново введите /reset_messages \n\nВы хотите добавить ещё одно сообщение? (да/нет)");
                             }
                             catch (Exception ex)
                             {
@@ -698,18 +777,111 @@ namespace uTgAuto.Services
 
                                 if (isYes)
                                 {
-                                    user.State = UserState.MessageText;
+                                    user.State = UserState.MessagesConfirm;
                                     databaseService.UpdateUser(user);
 
-                                    await _client.SendTextMessageAsync(user.ChatID, $"Поздравляю ваше сообщение успешно создано! Вот как выглядят настройки вашего сообщения:```\n{JsonConvert.SerializeObject(user.Messages)}```\n\n Введите ");
+                                    await _client.SendTextMessageAsync(user.ChatID, $"Поздравляю ваше сообщение успешно создано! Вот как выглядят настройки вашего сообщения:\n\n{JsonConvert.SerializeObject(user.Messages)}\n\n");
                                     await _client.SendTextMessageAsync(user.ChatID, "Укажите текст который ваш бот будет отправлять. Например: Привет!");
+                                    return;
                                 }
                                 else if (isNo)
                                 {
+                                    user.State = UserState.ParallelMessageConfirm;
+                                    await _client.SendTextMessageAsync(user.ChatID, "Вы хотите отвечать на конкретные сообщения вне очереди(паралельно отправке сообщение)? (пока сообщения будут отправляться, собеседник может задать вам вопрос, на который вы захотите ответить. Для этого нужны паралельные сообщения). \n\nК примеру, собеседник спросит ваше имя, а вы назовете его не прекращая цикл.\n\nИли если Когда человек пишет вам 'До свидания' вы хотите начинать цикл заново, для этого тоже нужны паралельные сообщения. \n\n(да/нет):");
+
+                                    databaseService.UpdateUser(user);
+                                    return;
+                                }
+
+                                return;
+                            }
+                            catch (Exception ex)
+                            {
+                                LoggerService.Error($"BotService.handleUpdateAsync: [{ex.GetLine()}] [{ex.Source}]\n\t{ex.Message}");
+                                await _client.SendTextMessageAsync(user.ChatID, "Что-то пошло не так!");
+                            }
+                            return;
+                        }
+
+                        #endregion
+
+                        #region ParallelMessageTargets
+
+                        if (user.State == UserState.ParallelMessageTargets)
+                        {
+                            try
+                            {
+                                if (message.Text!.Contains(","))
+                                    user.ParallelMessages.Add(new ParallelMessage()
+                                    {
+                                        Targets = message.Text!.Replace(" ", "").Split(",").ToList()
+                                    });
+                                else
+                                    user.ParallelMessages.Add(new ParallelMessage()
+                                    {
+                                        Targets = new List<string>() { message.Text }
+                                    });
+                                user.State = UserState.ParallelMessageAnswer;
+                                databaseService.UpdateUser(user);
+
+                                await _client.SendTextMessageAsync(user.ChatID, $"Бот будет отвечать на все сообщения содержщие: {message.Text}\n\n Важно! Если вы хотите чтобы на сообщение ответила нейронная сеть, то введите @ai.\n\nЕсли вы хотите чтобы после получения данного сообщения бот начал отправлять сообщения заново с первого сообщения, то введите: @restart\n\nВведите текст который бот будет отправлять при получении сообщения содержащее указаные вами символы: ");
+                            }
+                            catch (Exception ex)
+                            {
+                                LoggerService.Error($"BotService.handleUpdateAsync: [{ex.GetLine()}] [{ex.Source}]\n\t{ex.Message}");
+                                await _client.SendTextMessageAsync(user.ChatID, "Что-то пошло не так!");
+                            }
+                            return;
+                        }
+
+                        #endregion
+
+
+                        #region ParallelMessageAnswer
+
+                        if (user.State == UserState.ParallelMessageAnswer)
+                        {
+                            try
+                            {
+                                user.ParallelMessages.LastOrDefault()!.Answer = message.Text;
+                                user.State = UserState.ParallelMessageConfirm;
+                                databaseService.UpdateUser(user);
+
+                                await _client.SendTextMessageAsync(user.ChatID, $"Бот будет отвечать на все сообщения содержщие указаные вами символы этим текстом: {message.Text}\n\nВы хотите добавить ещё одно паралельное сообщение? (да/нет)");
+                                return;
+                            }
+                            catch (Exception ex)
+                            {
+                                LoggerService.Error($"BotService.handleUpdateAsync: [{ex.GetLine()}] [{ex.Source}]\n\t{ex.Message}");
+                                await _client.SendTextMessageAsync(user.ChatID, "Что-то пошло не так!");
+                            }
+                            return;
+                        }
+
+                        #endregion
+
+                        #region ParallelMessageConfirm
+
+                        if (user.State == UserState.ParallelMessageConfirm)
+                        {
+                            try
+                            {
+                                var isYes = TelegramService.yesList.Any(yesWord => message.Text.ToLower().Contains(yesWord));
+                                var isNo = TelegramService.noList.Any(noWord => message.Text.Contains(noWord));
+
+                                if (isYes)
+                                {
+                                    user.State = UserState.ParallelMessageTargets;
+                                    databaseService.UpdateUser(user);
+
+                                    await _client.SendTextMessageAsync(user.ChatID, "Пример 1(Бот реагирует на сообщения содержащие слова привет, ку,хай: привет,ку,хай\nПример 2(Бот реагирует на сообщения содержащие цифры): @int\nПример 3(Бот реагирует на ЛЮБЫЕ сообщения): @string\nПример 4(Бот реагирует на сообщения содержащие ССЫЛКУ или НИКНЕЙМ): @link\nПример 5(Бот реагирует на сообщения содержащие утверждение(да, конечно, 100%, естественно, и тп. ): @yes\nПример 6(Бот реагирует на сообщения содержащие отрицание(нет, неа, и тп.)): @no\n\nВажно! \nЕсли вы хотите отвечать на любое сообщение, то введите @string \nЕсли вы хотите чтобы бот отвечал на любые сообщения содержащие цифры, то введите @int\nЕсли вы хотите чтобы бот отвечал на любые сообщения содержащие ссылку(или телеграм аккаунт), то введите @link\nЕсли вы хотите чтобы бот отвечал на любые сообщения содержащие утверждение(да), то введите @yes\nЕсли вы хотите чтобы бот отвечал на любые сообщения содержащие отрицание(нет), то введите @no\n\nВведите текст на который будет отвечать бот(разделяя через запятую БЕЗ ПРОБЕЛА): ");
+                                }
+                                else if (isNo && user.TelegramService == null && user.TelegramService!.IsConnected == false)
+                                {
                                     user.State = UserState.Ready;
-                                    user.TelegramService = new TelegramService(user.Messages, user.ApiID.ToString(), user.ApiHash, user.Phone, user.Password, user.ChatID);
+                                    user.TelegramService = new TelegramService(user.Messages, user.ParallelMessages, user.ApiID.ToString(), user.ApiHash, user.Phone, user.Password, user.ChatID);
                                     var result = user.TelegramService.Connect().Result;
-                                    
+
                                     if (result != null && result.Message!.Contains("FLOOD"))
                                     {
                                         await _client.SendTextMessageAsync(user.ChatID, $"Вас временно заблокировал Телеграм за флуд, сообщение ошибки: {result.Message}. Вам стоит подождать столько минут сколько указано после FLOOD_WAIT_, если там X, то подождите 5 минут, в других случаях столько сколько указано. Не бойтесь, это нормально, возможно вам стоит сделать ожидание между сообщениями больше, чтобы таокго не повторялось.");
@@ -723,9 +895,11 @@ namespace uTgAuto.Services
                                     {
                                         await _client.SendTextMessageAsync(user.ChatID, "Что-то пошло не так... Попробуйте подключиться заново /conect");
                                     }
-
                                     databaseService.UpdateUser(user);
-                                    await _client.SendTextMessageAsync(user.ChatID, $"Поздравляю ваши сообщения готовы! Вот как выглядят настройки ваших сообщений:```\n{JsonConvert.SerializeObject(user.Messages)}```\n\n Чтобы начать заново введите /reset_messages \n\nТеперь вы можете запустить бота командой /start. Приятного использования! \nЧтобы создать новые сообщения напишите комманду: /resetMessages");
+                                }
+                                else if (isNo && user.TelegramService != null && user.TelegramService.IsConnected)
+                                {
+                                    await _client.SendTextMessageAsync(user.ChatID, $"Успешно! ");
                                 }
                             }
                             catch (Exception ex)
