@@ -2,6 +2,7 @@
 using Newtonsoft.Json;
 using Telegram.Bot;
 using Telegram.Bot.Polling;
+using Telegram.Bot.Types;
 using Telegram.Bot.Types.Enums;
 using Telegram.Bot.Types.ReplyMarkups;
 using uTgAuto.Services.Models;
@@ -119,7 +120,14 @@ namespace uTgAuto.Services
                         {
                             try
                             {
-                                bool isSignedUp = _users.Find(u => u.ChatID == message.From!.Id) != null;
+                                _users = databaseService.GetUsers();
+                                bool isSignedUp = _users.Find(u => u.ChatID == message.From!.Id && u.ApiID != 0) != null;
+                                bool isNew = true;
+                                try
+                                {
+                                    isNew = !_users.Find(u => u.ChatID == message.From!.Id)!.IsSignedUp;
+                                }
+                                catch { }
 
                                 if (message!.Text!.Length > 7)
                                 {
@@ -135,31 +143,45 @@ namespace uTgAuto.Services
                                                 await _client.SendTextMessageAsync(user.ChatID, "Теперь последний шаг перед запуском бота, вам нужно предоставить сообщения которые он будет отправлять. Я вам с этим помогу!\n\nУкажите текст который ваш бот будет отправлять. Например: Привет!");
 
                                                 user.State = UserState.MessageText;
+                                                _users.Find(u => u.ChatID == message.From.Id)!.State = UserState.MessageText;
                                                 databaseService.UpdateUser(user);
                                             }
                                             else
                                             {
                                                 await _client.SendTextMessageAsync(user.ChatID, "Ваш код получен! /start чтобы запустить бота");
                                             
-                                                 user.State = UserState.Ready;
-                                    user.TelegramService = new TelegramService(user.Messages, user.ParallelMessages, user.ApiID.ToString(), user.ApiHash, user.Phone, user.Password, user.ChatID);
-                                    var result = user.TelegramService.Connect().Result;
+                                                user.State = UserState.Ready;
+                                                user.TelegramService = new TelegramService(user.Messages, user.ParallelMessages, user.ApiID.ToString(), user.ApiHash, user.Phone, user.Password, user.ChatID, user.Coins);
+                                                var result = user.TelegramService.Connect().Result;
                                     
-                                    if (result != null && result.Message!.Contains("FLOOD"))
-                                    {
-                                        await _client.SendTextMessageAsync(user.ChatID, $"Вас временно заблокировал Телеграм за флуд, сообщение ошибки: {result.Message}. Вам стоит подождать столько минут сколько указано после FLOOD_WAIT_, если там X, то подождите 5 минут, в других случаях столько сколько указано. Не бойтесь, это нормально, возможно вам стоит сделать ожидание между сообщениями больше, чтобы таокго не повторялось.");
-                                    }
+                                                if (result != null && result.Message!.Contains("FLOOD"))
+                                                {
+                                                    await _client.SendTextMessageAsync(user.ChatID, $"Вас временно заблокировал Телеграм за флуд, сообщение ошибки: {result.Message}. Вам стоит подождать столько минут сколько указано после FLOOD_WAIT_, если там X, то подождите 5 минут, в других случаях столько сколько указано. Не бойтесь, это нормально, возможно вам стоит сделать ожидание между сообщениями больше, чтобы таокго не повторялось.");
+                                                    return;
+                                                }
+                                                else if (result != null && result.IsEnoughCoins == false)
+                                                {
+                                                    await _client.SendTextMessageAsync(user.ChatID, $"У вас недостаточно монет({user.Coins}).");
 
-                                    if (user.TelegramService.IsConnected)
-                                    {
-                                        await _client.SendTextMessageAsync(user.ChatID, "Вы успешно подключили ваш аккаунт к боту. Теперь напишите /start чтобы запустить его!");
-                                    }
-                                    else
-                                    {
-                                        await _client.SendTextMessageAsync(user.ChatID, "Что-то пошло не так... Попробуйте подключиться заново /conect");
-                                    }
+                                                    user.State = UserState.Start;
+                                                    user.TelegramService!.Disconnect();
+                                                    user.TelegramService = null;
+                                                    databaseService.UpdateUser(user);
 
-                                    databaseService.UpdateUser(user);
+                                                    await _client.SendTextMessageAsync(user.ChatID, $"Отключаюсь! /connect чтобы заново подключиться!");
+                                                    return;
+                                                }
+
+                                                if (user.TelegramService.IsConnected)
+                                                {
+                                                    await _client.SendTextMessageAsync(user.ChatID, "Вы успешно подключили ваш аккаунт к боту. Теперь напишите /start чтобы запустить его!");
+                                                }
+                                                else
+                                                {
+                                                    await _client.SendTextMessageAsync(user.ChatID, "Что-то пошло не так... Попробуйте подключиться заново /conect");
+                                                }
+
+                                                databaseService.UpdateUser(user);
                                             }
                                         }
                                         else
@@ -170,7 +192,7 @@ namespace uTgAuto.Services
                                     return;
                                 }
 
-                                if (!isSignedUp)
+                                if (isSignedUp == false)
                                 {
                                     if (message!.Text!.Length > 7)
                                     {
@@ -185,9 +207,9 @@ namespace uTgAuto.Services
 
                                             if (chatIdOwner != null)
                                             {
-                                                chatIdOwner.Credits++;
+                                                chatIdOwner.Coins++;
                                                 databaseService.UpdateUser(chatIdOwner);
-                                                await _client.SendTextMessageAsync(chatId, $"По вашей реферальной ссылке присоединился 1 пользователь. За это вы получаете 1 монету!\n\nВведите /credits чтобы посмотреть ваш баланс.");
+                                                await _client.SendTextMessageAsync(chatId, $"По вашей реферальной ссылке присоединился 1 пользователь. За это вы получаете 1 монету!\n\nВведите /coins чтобы посмотреть ваш баланс.");
                                             }
                                             else
                                             {
@@ -201,24 +223,59 @@ namespace uTgAuto.Services
                                     }
                                     else
                                     {
-                                        user = new User()
+                                        if (isNew)
                                         {
-                                            ChatID = message.From.Id,
-                                            State = UserState.SignUpVerify
-                                        };
-                                        _users.Add(user);
-                                        databaseService.AddUser(user);
-                                        await _client.SendTextMessageAsync(user.ChatID, $"Добро Пожаловать, {message.From.FirstName} {message.From.LastName}! Это бот для автоматического общения интегрированный с ИИ! \n\nЧтобы начать использование вам нужно для начала зарегистрироваться, не бойтесь, это не сложно.\n\nНаш бот использует Telegram API для подключения к вашему аккаунту и отправке, чтению сообщений в чате указаным ВАМИ. \nНаш бот не собирает данные о нашим пользователях.\n\nЧто наш бот делает: * Подключается к аккаунта\n* Отправляет сообщения указанные вами в указанный чат\n* Читает сообщения если вы это указали в указанном вами чате\nПри желании, использует ИИ для ответа на вопрос исходя из указанной вами информации.\n\nЧто наш бот НЕ делает:\n* НЕ собирает данные об отправленных или полученных сообщениях. \nНЕ делает действий не указаных ВАМИ на вашем аккаунте\n\nЕсли вы согласны с тем что наш бот подключится к вашему аккаунту напишите Да, если не согласны напишите Нет, и мы моментально удалим всю существующую о вас инфомрацию из нашей базы данных. ");
+                                            user = new User()
+                                            {
+                                                ChatID = message.From.Id,
+                                                State = UserState.SignUpVerify,
+                                                Coins = 1f,
+                                                IsSignedUp = true
+                                            };
+                                            _users.Add(user);
+                                            databaseService.AddUser(user);
+                                        }
+                                        else
+                                        {
+                                            user = _users.Find(u => u.ChatID == message.From.Id);
+                                            user!.State = UserState.SignUpVerify;
+                                            databaseService.AddUser(user);
+                                        }
+                                        string agreementLink = "https://hackmd.io/@uaquax/uTgAuto";
+                                        string messageText = $"Внимание: бот на данные момент находится в тестировании, могут встречаться неполадки /support чтобы написать нам\n\nДобро Пожаловать, {message.From.FirstName} {message.From.LastName}! Это бот для автоматизации отправки сообщений интегрированный с ИИ! \n\nПеред тем как зарегистрироваться, вы должны согласиться с <a href='{agreementLink}'>пользовательским соглашением</a> \n\nДля автоматизации наш бот подключиться к вашему аккаунту.\n\nЕсли вы согласны напишите <b>да,</b> (или нажмите на кнопку ниже) если не согласны напишите <b>нет,</b> (или нажмите на кнопку ниже) и мы удалим всю существующую о вас информацию из нашей базы данных.";
 
+                                        var parseMode = ParseMode.Html;
+                                        var messageEntities = new[]
+                                        {
+                                            new MessageEntity { Type = MessageEntityType.Bold, Offset = messageText.IndexOf("<b>"), Length = 3 },
+                                            new MessageEntity { Type = MessageEntityType.Bold, Offset = messageText.IndexOf("<b>", messageText.IndexOf("<b>") + 1), Length = 3 },
+                                            new MessageEntity { Type = MessageEntityType.TextLink, Offset = messageText.IndexOf(agreementLink), Length = agreementLink.Length, Url = agreementLink }
+                                        };
+                                        var inlineKeyboard = new InlineKeyboardMarkup(
+                                            new[]
+                                            {
+                                                new[]
+                                                {
+                                                    InlineKeyboardButton.WithUrl("Пользовательское соглашение", agreementLink)
+                                                },
+                                                new[]
+                                                {
+                                                    InlineKeyboardButton.WithCallbackData("Да, я согласен", $"yes"),
+                                                    InlineKeyboardButton.WithCallbackData("Нет, я не согласен", $"no")
+                                                }
+                                            }
+                                        );
+                                        await _client.SendTextMessageAsync(user.ChatID, messageText, parseMode: parseMode, entities: messageEntities, replyMarkup: inlineKeyboard);
+                                        
                                         return;
                                     }
                                 }
-                                if (user!.Credits > 0 && user!.Messages != null && user!.Messages.Count != 0)
+                                if (user!.Coins > 0 && user!.Messages != null && user!.Messages.Count != 0)
                                 {
                                     user.State = UserState.Running;
                                     databaseService.UpdateUser(user);
 
-                                    await _client.SendTextMessageAsync(message.From!.Id, $"Запускаю! Доступно монет: {user.Credits}");
+                                    await _client.SendTextMessageAsync(message.From!.Id, $"Запускаю! Доступно монет(1 цикл сообщений = 0.001 монет): {user.Coins}");
 
                                     _ = Task.Run(async () =>
                                     {
@@ -229,6 +286,19 @@ namespace uTgAuto.Services
                                             if (result != null && result.Message!.Contains("FLOOD"))
                                             {
                                                 await _client.SendTextMessageAsync(user.ChatID, $"Вас временно заблокировал Телеграм за флуд, сообщение ошибки: {result.Message}. Вам стоит подождать столько минут сколько указано после FLOOD_WAIT_, если там X, то подождите 5 минут, в других случаях столько сколько указано. Не бойтесь, это нормально, возможно вам стоит сделать ожидание между сообщениями больше, чтобы таокго не повторялось.");
+                                                return;
+                                            }
+                                            else if (result != null && result.IsEnoughCoins == false)
+                                            {
+                                                await _client.SendTextMessageAsync(user.ChatID, $"У вас недостаточно монет({user.Coins}).");
+                                               
+                                                user.State = UserState.Start;
+                                                user.TelegramService!.Disconnect();
+                                                user.TelegramService = null;
+                                                databaseService.UpdateUser(user);
+
+                                                await _client.SendTextMessageAsync(user.ChatID, $"Отключаюсь! /connect чтобы заново подключиться!");
+                                                return;
                                             }
                                         }
                                         catch { }
@@ -236,9 +306,9 @@ namespace uTgAuto.Services
 
                                     await _client.SendTextMessageAsync(message.From.Id, "Запустил!");
                                 }
-                                else if (user!.Credits <= 0)
+                                else if (user!.Coins <= 0)
                                 {
-                                    await _client.SendTextMessageAsync(message.From!.Id, $"Недостаточно монет({user.Credits})! Пригласи друга по реферальной ссылке или купи новые монеты.");
+                                    await _client.SendTextMessageAsync(message.From!.Id, $"Недостаточно монет({user.Coins})! Пригласи друга по реферальной ссылке или купи новые монеты.");
                                 }
                                 else if (user!.Messages == null || user!.Messages.Count <= 0)
                                 {
@@ -267,11 +337,12 @@ namespace uTgAuto.Services
                                     catch { }
 
                                     user.State = UserState.Ready;
-                                    user.TelegramService = new TelegramService(user.Messages, user.ParallelMessages, user.ApiID.ToString(), user.ApiHash, user.Phone, user.Password, user.ChatID);
+                                    user.TelegramService = new TelegramService(user.Messages, user.ParallelMessages, user.ApiID.ToString(), user.ApiHash, user.Phone, user.Password, user.ChatID, user.Coins);
                                     var result = user.TelegramService.Connect().Result;
                                     if (result != null && result.Message!.Contains("FLOOD"))
                                     {
                                         await _client.SendTextMessageAsync(user.ChatID, $"Вас временно заблокировал Телеграм за флуд, сообщение ошибки: {result.Message}. Вам стоит подождать столько минут сколько указано после FLOOD_WAIT_, если там X, то подождите 5 минут, в других случаях столько сколько указано. Не бойтесь, это нормально, возможно вам стоит сделать ожидание между сообщениями больше, чтобы таокго не повторялось.");
+                                        return;
                                     }
 
                                     var inlineKeyboard = new InlineKeyboardMarkup(new[]
@@ -282,7 +353,7 @@ namespace uTgAuto.Services
                                         }
                                      });
 
-                                    await _client.SendTextMessageAsync(user.ChatID, $"Введите код полученный от Телеграма(это нужно чтобы подключиться к аккаунту): ", replyMarkup: inlineKeyboard);
+                                    await _client.SendTextMessageAsync(user.ChatID, $"Нажмите на кнопку ниже чтобы ввести код полученный от Телеграма(это нужно чтобы подключиться к аккаунту): ", replyMarkup: inlineKeyboard);
                                     await _client.SendTextMessageAsync(user.ChatID, $"После того как ввели ваш код, напишите /start чтобы запустить бота!");
                                 }).Wait();
                                 return;
@@ -298,19 +369,12 @@ namespace uTgAuto.Services
                         {
                             _ = Task.Run(async () =>
                             {
-                                if (user!.State != UserState.SignInTelegramService)
-                                {
-                                    user.State = UserState.Start;
-                                    user.TelegramService!.Disconnect();
-                                    user.TelegramService = null;
-                                    databaseService.UpdateUser(user);
+                                user!.State = UserState.Start;
+                                user.TelegramService!.Disconnect();
+                                user.TelegramService = null;
+                                databaseService.UpdateUser(user);
 
-                                    await _client.SendTextMessageAsync(user.ChatID, $"Отключаюсь! /connect чтобы заново подключиться!");
-                                }
-                                else
-                                {
-                                    await _client.SendTextMessageAsync(user.ChatID, $"Вы не подключены!");
-                                }
+                                await _client.SendTextMessageAsync(user.ChatID, $"Отключаюсь! /connect чтобы заново подключиться!");
                             });
                         }
 
@@ -321,6 +385,24 @@ namespace uTgAuto.Services
                         if (message.Text.Contains("/referral"))
                         {
                             await _client.SendTextMessageAsync(user!.ChatID, $"Вот ваша реферальная ссылка: \n\nhttps://t.me/uTgAutoBot?start={user.ChatID}");
+                            return;
+                        }
+
+                        #endregion
+
+                        #region /support
+
+                        if (message.Text.Contains("/support"))
+                        {
+
+                            var inlineKeyboard = new InlineKeyboardMarkup(new[]
+                            {
+                                new[]
+                                {
+                                    InlineKeyboardButton.WithUrl("Написать в поддержку", "https://t.me/uTgAutoSupport")
+                                }
+                            });
+                            await _client.SendTextMessageAsync(user!.ChatID, $"Нажмите на кнопку ниже чтобы написать в поддержку: ", replyMarkup: inlineKeyboard);
                             return;
                         }
 
@@ -347,11 +429,11 @@ namespace uTgAuto.Services
 
                         #endregion
 
-                        #region /credits
+                        #region /coins
 
-                        if (message.Text.Contains("/credits"))
+                        if (message.Text.Contains("/coins"))
                         {
-                            await _client.SendTextMessageAsync(user!.ChatID, $"Ваш баланс: {user.Credits}");
+                            await _client.SendTextMessageAsync(user!.ChatID, $"Ваш баланс: {user.Coins}");
                         }
 
                         #endregion
@@ -442,48 +524,6 @@ namespace uTgAuto.Services
                                 LoggerService.Error($"BotService.handleUpdateAsync: [{ex.GetLine()}] [{ex.Source}]\n\t{ex.Message}");
                                 await _client.SendTextMessageAsync(user!.ChatID, "Что-то пошло не так!");
                             }
-                        }
-
-                        #endregion
-
-                        #region SignInTelegramService
-
-                        if (user!.State == UserState.SignInTelegramService)
-                        {
-                            try
-                            {
-                                File.Delete($"Sessions/{user.ChatID}.session");
-                            }
-                            catch { }
-
-                            _ = Task.Run(async () =>
-                            {
-                                try
-                                {
-                                    user.State = UserState.Ready;
-                                    user.TelegramService = new TelegramService(user.Messages, user.ParallelMessages, user.ApiID.ToString(), user.ApiHash, user.Phone, user.Password, user.ChatID);
-                                    var result = user.TelegramService.Connect().Result;
-
-                                    if (result != null && result.Message!.Contains("FLOOD"))
-                                    {
-                                        await _client.SendTextMessageAsync(user.ChatID, $"Вас временно заблокировал Телеграм за флуд, сообщение ошибки: {result.Message}. Вам стоит подождать столько минут сколько указано после FLOOD_WAIT_, если там X, то подождите 5 минут, в других случаях столько сколько указано. Не бойтесь, это нормально, возможно вам стоит сделать ожидание между сообщениями больше, чтобы таокго не повторялось.");
-                                    }
-
-                                    var inlineKeyboard = new InlineKeyboardMarkup(new[]
-                                    {
-                                    new[]
-                                    {
-                                        InlineKeyboardButton.WithUrl("Ввести код", $"http://127.0.0.1:8080?chat_id={user.ChatID}")
-                                    }
-                                });
-
-                                    await _client.SendTextMessageAsync(user.ChatID, $"Введите код полученный от Телеграма(это нужно чтобы подключиться к аккаунту): ", replyMarkup: inlineKeyboard);
-                                    await _client.SendTextMessageAsync(user.ChatID, $"После того как ввели ваш код, напишите /connect заново чтобы использовать его!", replyMarkup: inlineKeyboard);
-                                }
-                                catch { }
-                            });
-
-                            return;
                         }
 
                         #endregion
@@ -844,10 +884,12 @@ namespace uTgAuto.Services
                             try
                             {
                                 user.ParallelMessages.LastOrDefault()!.Answer = message.Text;
-                                user.State = UserState.ParallelMessageConfirm;
+                                user.State = UserState.ParallelMessageTarget;
                                 databaseService.UpdateUser(user);
 
-                                await _client.SendTextMessageAsync(user.ChatID, $"Бот будет отвечать на все сообщения содержщие указаные вами символы этим текстом: {message.Text}\n\nВы хотите добавить ещё одно паралельное сообщение? (да/нет)");
+                                await _client.SendTextMessageAsync(user.ChatID, $"Бот будет отвечать на все сообщения содержщие указаные вами символы этим текстом: {message.Text}");
+                                await _client.SendTextMessageAsync(user.ChatID, "Чьи сообщения вас интересуют? Введите никнейм(пример: @uTgAutoBot), другие варианты пока недоступны: ");
+
                                 return;
                             }
                             catch (Exception ex)
@@ -855,6 +897,72 @@ namespace uTgAuto.Services
                                 LoggerService.Error($"BotService.handleUpdateAsync: [{ex.GetLine()}] [{ex.Source}]\n\t{ex.Message}");
                                 await _client.SendTextMessageAsync(user.ChatID, "Что-то пошло не так!");
                             }
+                            return;
+                        }
+
+                        #endregion
+
+                        #region ParallelMessageTarget
+
+                        if (user.State == UserState.ParallelMessageTarget)
+                        {
+                            try
+                            {
+                                user.State = UserState.ParallelMessageAskAI;
+                                user.ParallelMessages.LastOrDefault()!.Target = message.Text;
+                                databaseService.UpdateUser(user);
+
+                                await _client.SendTextMessageAsync(user.ChatID, $"Бот будет отвечать на все сообщения от {message.Text} содержщие указаные вами символы этим текстом: {user.ParallelMessages.LastOrDefault()!.Answer}\n\nВы хотите чтобы бот отвечал на полученное сообщение с помощью нейронной сети?(да/нет)");
+                            }
+                            catch (Exception ex)
+                            {
+                                LoggerService.Error($"BotService.handleUpdateAsync: [{ex.GetLine()}] [{ex.Source}]\n\t{ex.Message}");
+                                await _client.SendTextMessageAsync(user.ChatID, "Что-то пошло не так!");
+                            }
+                            return;
+                        }
+
+                        #endregion
+
+                        #region ParallelMessageAskAI
+
+                        if (user.State == UserState.ParallelMessageAskAI)
+                        {
+                            var isYes = TelegramService.yesList.Any(yesWord => message.Text.ToLower().Contains(yesWord));
+                            var isNo = TelegramService.noList.Any(noWord => message.Text.Contains(noWord));
+
+                            if (isYes)
+                            {
+                                user.ParallelMessages.LastOrDefault()!.AskAI = true;
+                                user.State = UserState.ParallelMessageInformation;
+                                databaseService.UpdateUser(user);
+
+                                await _client.SendTextMessageAsync(user.ChatID, $"Пример: \n\nКомпания: Google\nТелефоне: +4614352345\nАдрес компании: Улица Шанпиньона 54\n...\n\nВведите информацию на основе которой нейронная сеть будет отвечать: ");
+                            }
+                            else
+                            {
+                                user.ParallelMessages.LastOrDefault()!.Information = message.Text;
+                                user.State = UserState.ParallelMessageConfirm;
+                                databaseService.UpdateUser(user);
+
+                                await _client.SendTextMessageAsync(user.ChatID, $"Вы хотите добавить ещё одно паралельное сообщение? (да/нет)");
+                            }
+                            return;
+                        }
+
+                        #endregion
+
+                        #region ParallelMessageInformation
+
+                        if (user.State == UserState.ParallelMessageInformation)
+                        {
+                            user.ParallelMessages.LastOrDefault()!.Information = message.Text;
+                            user.State = UserState.ParallelMessageConfirm;
+                            databaseService.UpdateUser(user);
+
+                            await _client.SendTextMessageAsync(user.ChatID, $"Готово! Нейронная сеть будет отвечать на основе этой информации:\n{user.Messages.LastOrDefault()!.Information}");
+                            await _client.SendTextMessageAsync(user.ChatID, $"Вы хотите добавить ещё одно паралельное сообщение? (да/нет)");
+                            
                             return;
                         }
 
@@ -876,15 +984,28 @@ namespace uTgAuto.Services
 
                                     await _client.SendTextMessageAsync(user.ChatID, "Пример 1(Бот реагирует на сообщения содержащие слова привет, ку,хай: привет,ку,хай\nПример 2(Бот реагирует на сообщения содержащие цифры): @int\nПример 3(Бот реагирует на ЛЮБЫЕ сообщения): @string\nПример 4(Бот реагирует на сообщения содержащие ССЫЛКУ или НИКНЕЙМ): @link\nПример 5(Бот реагирует на сообщения содержащие утверждение(да, конечно, 100%, естественно, и тп. ): @yes\nПример 6(Бот реагирует на сообщения содержащие отрицание(нет, неа, и тп.)): @no\n\nВажно! \nЕсли вы хотите отвечать на любое сообщение, то введите @string \nЕсли вы хотите чтобы бот отвечал на любые сообщения содержащие цифры, то введите @int\nЕсли вы хотите чтобы бот отвечал на любые сообщения содержащие ссылку(или телеграм аккаунт), то введите @link\nЕсли вы хотите чтобы бот отвечал на любые сообщения содержащие утверждение(да), то введите @yes\nЕсли вы хотите чтобы бот отвечал на любые сообщения содержащие отрицание(нет), то введите @no\n\nВведите текст на который будет отвечать бот(разделяя через запятую БЕЗ ПРОБЕЛА): ");
                                 }
-                                else if (isNo && user.TelegramService == null && user.TelegramService!.IsConnected == false)
+                                else if (isNo)
                                 {
                                     user.State = UserState.Ready;
-                                    user.TelegramService = new TelegramService(user.Messages, user.ParallelMessages, user.ApiID.ToString(), user.ApiHash, user.Phone, user.Password, user.ChatID);
+                                    user.TelegramService = new TelegramService(user.Messages, user.ParallelMessages, user.ApiID.ToString(), user.ApiHash, user.Phone, user.Password, user.ChatID, user.Coins);
                                     var result = user.TelegramService.Connect().Result;
 
                                     if (result != null && result.Message!.Contains("FLOOD"))
                                     {
                                         await _client.SendTextMessageAsync(user.ChatID, $"Вас временно заблокировал Телеграм за флуд, сообщение ошибки: {result.Message}. Вам стоит подождать столько минут сколько указано после FLOOD_WAIT_, если там X, то подождите 5 минут, в других случаях столько сколько указано. Не бойтесь, это нормально, возможно вам стоит сделать ожидание между сообщениями больше, чтобы таокго не повторялось.");
+                                        return;
+                                    }
+                                    else if (result != null && result.IsEnoughCoins == false)
+                                    {
+                                        await _client.SendTextMessageAsync(user.ChatID, $"У вас недостаточно монет({user.Coins}).");
+
+                                        user.State = UserState.Start;
+                                        user.TelegramService!.Disconnect();
+                                        user.TelegramService = null;
+                                        databaseService.UpdateUser(user);
+
+                                        await _client.SendTextMessageAsync(user.ChatID, $"Отключаюсь! /connect чтобы заново подключиться!");
+                                        return;
                                     }
 
                                     if (user.TelegramService.IsConnected)
@@ -920,6 +1041,30 @@ namespace uTgAuto.Services
 
                         break;
                     case UpdateType.CallbackQuery:
+                        var callback = update.CallbackQuery;
+                        var callback_user = _users.Find(u => u.ChatID == callback!.From.Id);
+
+                        if (callback_user!.State == UserState.SignUpVerify)
+                        {
+                            var isYes = callback!.Data!.Contains("yes");
+                            var isNo = callback!.Data!.Contains("no");
+
+                            if (isYes)
+                            {
+                                callback_user.State = UserState.SignUpPhone;
+                                await _client.SendTextMessageAsync(callback_user.ChatID, "Мы рады что вы доверяете нам! Теперь осталось зарегистрироваться. Введите ваш номер телефона в интернациональном формате(пример: (+8618132341295): ");
+                            }
+                            else if (isNo)
+                            {
+                                _users.Remove(_users.Find(user => user.ChatID == callback.From.Id)!);
+                                databaseService.DeleteUser(callback_user.ChatID);
+                                await _client.SendTextMessageAsync(callback_user.ChatID, "Мы уважаем ваше решение! Ваш аккаунт будет удалён сразу же после этого сообщения.");
+                            }
+
+                            await _client.DeleteMessageAsync(callback.From.Id, callback.Message!.MessageId);
+
+                            return;
+                        }
                         break;
                     default:
                         break;

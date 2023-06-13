@@ -9,11 +9,12 @@
         public string Phone { get; set; } = string.Empty;
         public string Password { get; set; } = string.Empty;
         public string Code { get; set; } = string.Empty;
-        public int Credits { get; set; } = 1;
+        public float Coins { get; set; } = 0;
         public UserState State { get; set; } = UserState.Start;
         public List<Message> Messages { get; set; } = new List<Message>();
         public List<ParallelMessage> ParallelMessages { get; set; } = new List<ParallelMessage>();
         public TelegramService? TelegramService { get; set; }
+        public bool IsSignedUp { get; set; } = false;
     }
 
     public enum UserState
@@ -33,6 +34,9 @@
         MessageAnswer,
         MessageSleepTime,
         MessagesConfirm,
+        ParallelMessageTarget,
+        ParallelMessageAskAI,
+        ParallelMessageInformation,
         ParallelMessageTargets,
         ParallelMessageAnswer,
         ParallelMessageConfirm,

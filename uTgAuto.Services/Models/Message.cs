@@ -14,7 +14,10 @@
 
     public class ParallelMessage
     {
+        public string? Target { get; set; }
         public List<string> Targets { get; set; } = new List<string>() { "@string" };
         public string? Answer { get; set; }
+        public bool AskAI { get; set; } = false;
+        public string Information { get; set; } = string.Empty;
     }
 }

@@ -45,9 +45,11 @@ namespace uTgAuto.Services
         private readonly Auth? _auth;
         private bool _isRunning = false;
         private int _messageIndex = 0;
-        private Flood? _flood;
+        private Result? _flood;
+        private long _chatID;
+        private float _coins = 0;
 
-        public TelegramService(List<Message> messages, List<ParallelMessage> parallelWaitingMessages, string apiId, string apiHash, string phoneNumber, string password, long chatID)
+        public TelegramService(List<Message> messages, List<ParallelMessage> parallelWaitingMessages, string apiId, string apiHash, string phoneNumber, string password, long chatID, float coins)
         {
             try
             {
@@ -56,6 +58,8 @@ namespace uTgAuto.Services
                 //#else
                 //            Helpers.Log = (lvl, str) => { };
                 //#endif
+                _chatID = chatID;
+                _coins = coins;
                 Helpers.Log = (lvl, str) => { };
                 _messages = messages;
                 _parallelMessages = parallelWaitingMessages;
@@ -105,7 +109,20 @@ namespace uTgAuto.Services
             catch { }
         }
 
-        public async Task<Flood?> Start()
+        private void updateCoins()
+        {
+            try
+            {
+                _coins -= 0.001f;
+                BotService.databaseService.RemoveCoins(_chatID, 0.001f);
+            }
+            catch (Exception ex)
+            {
+                LoggerService.Warning($"TelegramService.UpdateCoins(): [{ex.GetLine()}] [{ex.Source}]\n\t{ex.Message}");
+            }
+        }
+
+        public async Task<Result?> Start()
         {
             try
             {
@@ -139,6 +156,18 @@ namespace uTgAuto.Services
 
                         while (_messageIndex < _messages.Count())
                         {
+                            if (_messageIndex <= 0)
+                            {
+                                updateCoins();
+                                if (_coins < 0.01)
+                                {
+                                    return new Result()
+                                    {
+                                        IsEnoughCoins = true,
+                                        Message = "Not enough coins"
+                                    };
+                                }
+                            }
                             var message = _messages[_messageIndex];
 
                             if (message == null || _state != State.Work) continue;
@@ -182,7 +211,7 @@ namespace uTgAuto.Services
                             LoggerService.Warning($"FLOOD ERROR. Wait for: {ex.Message.Split("FLOOD_WAIT_")[1].Split("_")[0]}");
 
                             _isRunning = false;
-                            _flood = new Flood() { Message = ex.Message };
+                            _flood = new Result() { Message = ex.Message };
                             return _flood;
                         }
                     }
@@ -195,7 +224,7 @@ namespace uTgAuto.Services
                 if (ex.Message.Contains("FLOOD"))
                 {
                     LoggerService.Warning($"FLOOD ERROR. Wait for: {ex.Message.Split("FLOOD_WAIT_")[1].Split("_")[0]}");
-                    _flood = new Flood() { Message = ex.Message };
+                    _flood = new Result() { Message = ex.Message };
                     return _flood;
                 }
 
@@ -205,18 +234,11 @@ namespace uTgAuto.Services
             return _flood;
         }
 
-        public async Task<Flood?> Connect()
+        public async Task<Result?> Connect()
         {
             try
             {
-                try
-                {
-                    LoggerService.Debug($"Telegram.Service.Connect(): Connect is called. \nInformation: {_user!.id}\t{Thread.CurrentThread.ManagedThreadId}\t{Thread.CurrentThread.Name}");
-                }
-                catch
-                {
-                    LoggerService.Debug($"Telegram.Service.Connect(): Connect is called.");
-                }
+                LoggerService.Debug($"Telegram.Service.Connect(): Connect is called.");
 
                 Console.ForegroundColor = ConsoleColor.Gray;
                 LoggerService.Debug("Connecting to Telegram...");
@@ -256,7 +278,7 @@ namespace uTgAuto.Services
                     _client = null;
                     _user = null; 
                     
-                    _flood = new Flood() { Message = ex.Message };
+                    _flood = new Result() { Message = ex.Message };
                     return _flood;
                 }
                 catch { }
@@ -269,7 +291,8 @@ namespace uTgAuto.Services
         {
             try
             {
-                if (arg is not UpdatesBase updates || _state == State.Work) return;
+                if (arg is not UpdatesBase updates) return;
+                if (_parallelMessages.Count <= 0 && _state == State.Work) return;
 
                 foreach (var update in updates.UpdateList)
                 {
@@ -302,6 +325,7 @@ namespace uTgAuto.Services
                 switch (messageBase)
                 {
                     case TL.Message message:
+                        LoggerService.Trace($"TelegramSerivce.displayMessage(): case TL.Message {message.from_id} -> {message.message} \n\t-> {_waitingMessage}");
                         try
                         {
                             var resolved = await _client.Contacts_ResolveUsername(_messages[_messageIndex]!.Target!.Replace("@", string.Empty));
@@ -310,7 +334,7 @@ namespace uTgAuto.Services
                         catch { }
 
                         LoggerService.Trace($"TelegramSerivce.displayMessage(): case TL.Message {message.from_id} -> {message.message} \n\t-> {_waitingMessage}");
-
+                        LoggerService.Trace($"TelegramSerivce.displayMessage(): if (_parallelMessages ( {_parallelMessages} ) != null)");
                         if (_parallelMessages != null)
                         {
                             foreach (var pMessage in _parallelMessages)
@@ -322,8 +346,7 @@ namespace uTgAuto.Services
                                 var isYes = targets?.Find(target => "@yes".Contains(target.ToLower())) == null ? false : true;
                                 var isNo = targets?.Find(target => "@no".Contains(target.ToLower())) == null ? false : true;
                                 var isRestart = targets?.Find(targets => "@restart".Contains(targets.ToLower())) == null ? false : true;
-
-                                var resolved = await _client.Contacts_ResolveUsername(_waitingMessage?.Target?.Replace("@", string.Empty));
+                                var resolved = await _client.Contacts_ResolveUsername(pMessage!.Target?.Replace("@", string.Empty));
 
                                 bool isContains = false;
 
@@ -374,28 +397,24 @@ namespace uTgAuto.Services
                                 {
                                     if (_messageIndex == 1) _isInChat = true;
                                     else _isInChat = false;
-                                    if (_waitingMessage!.Answer!.Contains("@ai"))
+                                    if (pMessage!.Answer!.Contains("@ai") || pMessage!.AskAI == true)
                                     {
-                                        var aiAnswer = await AIService.Ask(_waitingMessage!.Information, message.message);
+                                        var aiAnswer = await AIService.Ask(pMessage!.Information, message.message);
                                         await _client!.SendMessageAsync(resolved, aiAnswer, reply_to_msg_id: message.ID);
-                                        _state = State.Work;
-                                        _waitingMessage = null;
                                     }
                                     else
                                     {
-                                        await _client!.SendMessageAsync(resolved, _waitingMessage?.Answer, reply_to_msg_id: message.ID);
-                                        _state = State.Work;
-                                        _waitingMessage = null;
+                                        await _client!.SendMessageAsync(resolved, pMessage.Answer, reply_to_msg_id: message.ID);
                                     }
                                 }
                             }
                         }
 
-                        LoggerService.Trace($"TelegramSerivce.displayMessage(): _waitingMessage ( {_waitingMessage} ) != null && _waitingMessage.Target ( {_waitingMessage!.Target} ) != null");
-                        
                         if (_waitingMessage != null
                             && _waitingMessage.Target != null)
                         {
+                            LoggerService.Trace($"TelegramSerivce.displayMessage(): _waitingMessage ( {_waitingMessage} ) != null && _waitingMessage.Target ( {_waitingMessage!.Target} ) != null");
+                            
                             var resolved = await _client.Contacts_ResolveUsername(_waitingMessage!.Target!.Replace("@", string.Empty));
                             if (Peer(message.peer_id) != Peer(resolved.peer)) return;
                         }
@@ -463,7 +482,7 @@ namespace uTgAuto.Services
                                 if (_messageIndex == 1) _isInChat = true;
                                 else _isInChat = false;
 
-                                if (_waitingMessage!.Answer!.Contains("@ai"))
+                                if (_waitingMessage!.Answer!.Contains("@ai") || _waitingMessage!.AskAI == true)
                                 {
                                     var aiAnswer = await AIService.Ask(_waitingMessage!.Information, message.message);
                                     await _client!.SendMessageAsync(resolved, aiAnswer, reply_to_msg_id: message.ID);

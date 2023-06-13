@@ -13,10 +13,10 @@ namespace uTgAuto.Services
         public DatabaseService()
         {
             _connectionString = $"Data Source=User.db;Version=3;";
-            initialize();
+            Initialize();
         }
 
-        private void initialize()
+        private void Initialize()
         {
             try
             {
@@ -27,7 +27,7 @@ namespace uTgAuto.Services
                     string createTableQuery = @"
                         CREATE TABLE IF NOT EXISTS User (
                             ID INTEGER PRIMARY KEY AUTOINCREMENT,
-                            ChatID INTEGER,
+                            ChatID INTEGER UNIQUE,
                             ApiID TEXT,
                             ApiHash TEXT,
                             Phone TEXT,
@@ -35,8 +35,9 @@ namespace uTgAuto.Services
                             Messages JSON,
                             ParallelMessages JSON,
                             Code INTEGER,
-                            Credits INTEGER,
-                            State INTEGER
+                            Coins REAL,
+                            State INTEGER,
+                            IsSignedUp INTEGER DEFAULT 1
                         );";
 
                     using (var command = new SQLiteCommand(createTableQuery, connection))
@@ -45,15 +46,15 @@ namespace uTgAuto.Services
                     }
                 }
 
-                resetState();
+                ResetState();
             }
             catch (Exception ex)
             {
-                LoggerService.Error($"DatabaseService.initialize: [{ex.GetLine()}] [{ex.Source}]\n\t{ex.Message}");
+                LoggerService.Error($"DatabaseService.Initialize: [{ex.GetLine()}] [{ex.Source}]\n\t{ex.Message}");
             }
         }
 
-        public void resetState()
+        public void ResetState()
         {
             try
             {
@@ -63,7 +64,8 @@ namespace uTgAuto.Services
 
                     string updateQuery = @"
                         UPDATE User
-                        SET State = @state;";
+                        SET State = @state
+                        WHERE State >= 17;";
 
                     int newStateValue = (int)UserState.SignInTelegramService;
 
@@ -76,7 +78,7 @@ namespace uTgAuto.Services
             }
             catch (Exception ex)
             {
-                LoggerService.Error($"DatabaseService.resetState: [{ex.GetLine()}] [{ex.Source}]\n\t{ex.Message}");
+                LoggerService.Error($"DatabaseService.ResetState: [{ex.GetLine()}] [{ex.Source}]\n\t{ex.Message}");
             }
         }
 
@@ -107,10 +109,11 @@ namespace uTgAuto.Services
                                     Phone = Convert.ToString(reader["Phone"]) ?? string.Empty,
                                     Password = Convert.ToString(reader["Password"]) ?? string.Empty,
                                     Code = Convert.ToString(reader["Code"]) ?? string.Empty,
-                                    Credits = Convert.ToInt32(reader["Credits"]),
+                                    Coins = Convert.ToSingle(reader["Coins"]),
                                     State = (UserState)Convert.ToInt32(reader["State"]),
                                     Messages = JsonConvert.DeserializeObject<List<Message>>((string)reader["Messages"])!,
-                                    ParallelMessages = JsonConvert.DeserializeObject<List<ParallelMessage>>((string)reader["ParallelMessages"])!
+                                    ParallelMessages = JsonConvert.DeserializeObject<List<ParallelMessage>>((string)reader["ParallelMessages"])!,
+                                    IsSignedUp = Convert.ToInt32(reader["IsSignedUp"]) == 1
                                 };
 
                                 userList.Add(user);
@@ -156,10 +159,11 @@ namespace uTgAuto.Services
                                     Phone = Convert.ToString(reader["Phone"]) ?? string.Empty,
                                     Password = Convert.ToString(reader["Password"]) ?? string.Empty,
                                     Code = Convert.ToString(reader["Code"]) ?? string.Empty,
-                                    Credits = Convert.ToInt32(reader["Credits"]),
+                                    Coins = Convert.ToSingle(reader["Coins"]),
                                     State = (UserState)Convert.ToInt32(reader["State"]),
                                     Messages = JsonConvert.DeserializeObject<List<Message>>((string)reader["Messages"])!,
-                                    ParallelMessages = JsonConvert.DeserializeObject<List<ParallelMessage>>((string)reader["ParallelMessages"])!
+                                    ParallelMessages = JsonConvert.DeserializeObject<List<ParallelMessage>>((string)reader["ParallelMessages"])!,
+                                    IsSignedUp = Convert.ToInt32(reader["IsSignedUp"]) == 1
                                 };
                             }
                         }
@@ -183,8 +187,8 @@ namespace uTgAuto.Services
                     connection.Open();
 
                     string insertQuery = @"
-                INSERT INTO User (ChatID, ApiID, ApiHash, Phone, Password, Code, Credits, State, Messages, ParallelMessages)
-                VALUES (@ChatID, @ApiID, @ApiHash, @Phone, @Password, @Code, @Credits, @State, @Messages, @ParallelMessages);";
+                        INSERT INTO User (ChatID, ApiID, ApiHash, Phone, Password, Code, Coins, State, Messages, ParallelMessages, IsSignedUp)
+                        VALUES (@ChatID, @ApiID, @ApiHash, @Phone, @Password, @Code, @Coins, @State, @Messages, @ParallelMessages, @IsSignedUp);";
 
                     using (var command = new SQLiteCommand(insertQuery, connection))
                     {
@@ -194,10 +198,11 @@ namespace uTgAuto.Services
                         command.Parameters.AddWithValue("@Phone", user.Phone);
                         command.Parameters.AddWithValue("@Password", user.Password);
                         command.Parameters.AddWithValue("@Code", user.Code);
-                        command.Parameters.AddWithValue("@Credits", user.Credits);
+                        command.Parameters.AddWithValue("@Coins", user.Coins);
                         command.Parameters.AddWithValue("@State", (int)user.State);
                         command.Parameters.AddWithValue("@Messages", JsonConvert.SerializeObject(user.Messages));
                         command.Parameters.AddWithValue("@ParallelMessages", JsonConvert.SerializeObject(user.ParallelMessages));
+                        command.Parameters.AddWithValue("@IsSignedUp", user.IsSignedUp ? 1 : 0);
 
                         command.ExecuteNonQuery();
                     }
@@ -205,6 +210,7 @@ namespace uTgAuto.Services
             }
             catch (Exception ex)
             {
+                if (ex.ToString().ToLower().Contains("unique")) return;
                 LoggerService.Error($"DatabaseService.AddUser: [{ex.GetLine()}] [{ex.Source}]\n\t{ex.Message}");
             }
         }
@@ -217,12 +223,14 @@ namespace uTgAuto.Services
                 {
                     connection.Open();
 
-                    string deleteQuery = "DELETE FROM User WHERE ChatID = @chatid;";
+                    string updateQuery = @"
+                        UPDATE User
+                        SET ApiID = 0, ApiHash = '', Phone = '', Password = '', Code = 0, State = 0, Messages = '[]', ParallelMessages = '[]', IsSignedUp = 1
+                        WHERE ChatID = @chatid;";
 
-                    using (var command = new SQLiteCommand(deleteQuery, connection))
+                    using (var command = new SQLiteCommand(updateQuery, connection))
                     {
                         command.Parameters.AddWithValue("@chatid", chatId);
-
                         command.ExecuteNonQuery();
                     }
                 }
@@ -230,6 +238,63 @@ namespace uTgAuto.Services
             catch (Exception ex)
             {
                 LoggerService.Error($"DatabaseService.DeleteUser: [{ex.GetLine()}] [{ex.Source}]\n\t{ex.Message}");
+            }
+        }
+
+        public void AddCoins(long chatID, float amount)
+        {
+            try
+            {
+                using (var connection = new SQLiteConnection(_connectionString))
+                {
+                    connection.Open();
+
+                    string updateQuery = @"
+                        UPDATE User
+                        SET Coins = Coins + @amount
+                        WHERE ChatID = @chatID;";
+
+                    using (var command = new SQLiteCommand(updateQuery, connection))
+                    {
+                        command.Parameters.AddWithValue("@chatID", chatID);
+                        command.Parameters.AddWithValue("@amount", amount);
+
+                        command.ExecuteNonQuery();
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                LoggerService.Error($"DatabaseService.AddCoins: [{ex.GetLine()}] [{ex.Source}]\n\t{ex.Message}");
+            }
+        }
+
+        public void RemoveCoins(long chatID, float amount)
+        {
+            try
+            {
+                using (var connection = new SQLiteConnection(_connectionString))
+                {
+                    connection.Open();
+
+                    string updateQuery = @"
+                        UPDATE User
+                        SET Coins = Coins - @amount
+                        WHERE ChatID = @chatID
+                        AND Coins >= @amount;";
+
+                    using (var command = new SQLiteCommand(updateQuery, connection))
+                    {
+                        command.Parameters.AddWithValue("@chatID", chatID);
+                        command.Parameters.AddWithValue("@amount", amount);
+
+                        command.ExecuteNonQuery();
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                LoggerService.Error($"DatabaseService.RemoveCoins: [{ex.GetLine()}] [{ex.Source}]\n\t{ex.Message}");
             }
         }
 
@@ -248,10 +313,11 @@ namespace uTgAuto.Services
                             ApiHash = @apiHash,
                             Phone = @phone,
                             Password = @password,
-                            Credits = @credits,
+                            Coins = @coins,
                             State = @state,
                             Messages = @messages,
-                            ParallelMessages = @parallelMessages
+                            ParallelMessages = @parallelMessages,
+                            IsSignedUp = @isSignedUp
                         WHERE ChatID = @chatID;";
 
                     using (var command = new SQLiteCommand(updateQuery, connection))
@@ -261,10 +327,11 @@ namespace uTgAuto.Services
                         command.Parameters.AddWithValue("@apiHash", user.ApiHash);
                         command.Parameters.AddWithValue("@phone", user.Phone);
                         command.Parameters.AddWithValue("@password", user.Password);
-                        command.Parameters.AddWithValue("@credits", user.Credits);
+                        command.Parameters.AddWithValue("@coins", user.Coins);
                         command.Parameters.AddWithValue("@state", (int)user.State);
                         command.Parameters.AddWithValue("@messages", JsonConvert.SerializeObject(user.Messages));
                         command.Parameters.AddWithValue("@parallelMessages", JsonConvert.SerializeObject(user.ParallelMessages));
+                        command.Parameters.AddWithValue("@isSignedUp", user.IsSignedUp ? 1 : 0);
 
                         command.ExecuteNonQuery();
                     }
