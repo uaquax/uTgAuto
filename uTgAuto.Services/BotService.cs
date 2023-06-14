@@ -5,9 +5,11 @@ using Telegram.Bot.Polling;
 using Telegram.Bot.Types;
 using Telegram.Bot.Types.Enums;
 using Telegram.Bot.Types.ReplyMarkups;
+using TL;
 using uTgAuto.Services.Models;
 using File = System.IO.File;
 using Message = uTgAuto.Services.Models.Message;
+using MessageEntity = Telegram.Bot.Types.MessageEntity;
 using User = uTgAuto.Services.Models.User;
 
 namespace uTgAuto.Services
@@ -17,7 +19,8 @@ namespace uTgAuto.Services
         public static DatabaseService databaseService = new DatabaseService();
         private readonly TelegramBotClient? _client;
         private List<User> _users = new List<User>();
-
+        private readonly string _websiteUrl = "127.0.0.1:8080";
+        private const long ADMIN = 930727649;
         public BotService()
         {
             try
@@ -25,6 +28,7 @@ namespace uTgAuto.Services
                 DotEnv.Load();
 
                 string apiKey = Environment.GetEnvironmentVariable("API_KEY")!;
+                _websiteUrl = Environment.GetEnvironmentVariable("WEBSITE_URL")!;
                 _client = new TelegramBotClient(apiKey);
 
                 var receiveOptions = new ReceiverOptions
@@ -349,7 +353,7 @@ namespace uTgAuto.Services
                                     {
                                         new[]
                                         {
-                                            InlineKeyboardButton.WithUrl("Ввести код", $"127.0.0.1:8080?chat_id={user.ChatID}")
+                                            InlineKeyboardButton.WithUrl("Ввести код", $"{_websiteUrl}?chat_id={user.ChatID}")
                                         }
                                      });
 
@@ -384,7 +388,54 @@ namespace uTgAuto.Services
 
                         if (message.Text.Contains("/referral"))
                         {
-                            await _client.SendTextMessageAsync(user!.ChatID, $"Вот ваша реферальная ссылка: \n\nhttps://t.me/uTgAutoBot?start={user.ChatID}");
+                            await _client.SendTextMessageAsync(user!.ChatID, $"За каждого пользователя вы получите 1 монету! 🪙\n\nИспользуйте текст ниже, или ссылку https://t.me/uTgAutoBot?start={user.ChatID}\n\n🌟 Устал самому искать подходящего собеседника? Тогда приветствую тебя в нашем Телеграм боте! 🤖💬 Заходи по ссылке и получи бесплатный бонус. 🎁🔗 Наш бот поможет автоматизировать твои сообщения, сделает поиск собеседников проще и удобнее. Не теряй время, присоединяйся к нам! 👥✨\r\n https://t.me/uTgAutoBot?start={user.ChatID}");
+                            return;
+                        }
+
+                        #endregion
+
+                        #region /admin_info
+
+                        if (message.Text.Contains("/admin_info"))
+                        {
+                            if (message.From!.Id != ADMIN) return;
+                            
+                            await _client.SendTextMessageAsync(user!.ChatID, $"Информация ℹ️\n\n *👥 Количество пользователей:* `{_users.Count}`\n\n", parseMode: ParseMode.MarkdownV2);
+
+                            return;
+                        }
+
+                        #endregion
+
+                        #region /admin_logs
+
+                        if (message.Text.Contains("/admin_logs"))
+                        {
+                            if (message.From!.Id != ADMIN) return;
+
+                            /* Copying file so that it won't throw an error(being used by another process) */
+                            string sourceFilePath = "logs.log";
+                            string destinationFilePath = "logs_copy.log";
+
+                            using (FileStream sourceStream = new FileStream(sourceFilePath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite))
+                            {
+                                using (FileStream destinationStream = new FileStream(destinationFilePath, FileMode.Create, FileAccess.Write, FileShare.ReadWrite))
+                                {
+                                    byte[] buffer = new byte[8192];
+                                    int bytesRead;
+                                    while ((bytesRead = sourceStream.Read(buffer, 0, buffer.Length)) > 0)
+                                    {
+                                        destinationStream.Write(buffer, 0, bytesRead);
+                                    }
+                                }
+                            }
+
+                            using (FileStream fileStream = new FileStream(destinationFilePath, FileMode.Open))
+                            {
+                                InputFileStream inputFileStream = new InputFileStream(fileStream);
+                                await _client.SendDocumentAsync(user!.ChatID, inputFileStream, caption: "📜 Файл логов");
+                            }
+
                             return;
                         }
 
@@ -433,7 +484,7 @@ namespace uTgAuto.Services
 
                         if (message.Text.Contains("/coins"))
                         {
-                            await _client.SendTextMessageAsync(user!.ChatID, $"Ваш баланс: {user.Coins}");
+                            await _client.SendTextMessageAsync(user!.ChatID, $"Ваш баланс: {user.Coins}🪙");
                         }
 
                         #endregion
@@ -540,7 +591,9 @@ namespace uTgAuto.Services
                             if (isYes)
                             {
                                 user.State = UserState.SignUpPhone;
-                                await _client.SendTextMessageAsync(user.ChatID, "Мы рады что вы доверяете нам! Теперь осталось зарегистрироваться. Введите ваш номер телефона в интернациональном формате(пример: (+8618132341295): ");
+
+                                await _client.SendTextMessageAsync(user.ChatID, "Мы рады что вы доверяете нам! Теперь осталось зарегистрироваться.\n\n❗Мы настоятельно рекомендуем *НЕ использовать свой основной аккаунт*. Подробности в пользовательском соглашении.❗\n\nℹ️ На время тестирования, [мы](https://t.me/uTgAutoSupport) предоставляем бесплатные аккаунты", parseMode: ParseMode.Markdown);
+                                await _client.SendTextMessageAsync(user.ChatID, "Введите ваш номер телефона в интернациональном формате(пример: (+8618132341295): ");
                             }
                             else if (isNo)
                             {
@@ -1052,7 +1105,9 @@ namespace uTgAuto.Services
                             if (isYes)
                             {
                                 callback_user.State = UserState.SignUpPhone;
-                                await _client.SendTextMessageAsync(callback_user.ChatID, "Мы рады что вы доверяете нам! Теперь осталось зарегистрироваться. Введите ваш номер телефона в интернациональном формате(пример: (+8618132341295): ");
+
+                                await _client.SendTextMessageAsync(callback_user.ChatID, "Мы рады что вы доверяете нам! Теперь осталось зарегистрироваться.\n\n❗Мы настоятельно рекомендуем *НЕ использовать свой основной аккаунт*. Подробности в пользовательском соглашении.❗\n\nℹ️ На время тестирования, [мы](https://t.me/uTgAutoSupport) предоставляем бесплатные аккаунты", parseMode: ParseMode.Markdown);
+                                await _client.SendTextMessageAsync(callback_user.ChatID, "Введите ваш номер телефона в интернациональном формате(пример: (+8618132341295): ");
                             }
                             else if (isNo)
                             {
@@ -1060,8 +1115,6 @@ namespace uTgAuto.Services
                                 databaseService.DeleteUser(callback_user.ChatID);
                                 await _client.SendTextMessageAsync(callback_user.ChatID, "Мы уважаем ваше решение! Ваш аккаунт будет удалён сразу же после этого сообщения.");
                             }
-
-                            await _client.DeleteMessageAsync(callback.From.Id, callback.Message!.MessageId);
 
                             return;
                         }

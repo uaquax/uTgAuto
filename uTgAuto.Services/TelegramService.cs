@@ -17,7 +17,6 @@ namespace uTgAuto.Services
     }
     public class TelegramService
     {
-
         public static readonly List<string> yesList = new List<string>()
         {
             "yes", "yep", "yeah", "sure", "absolutely", "certainly",
@@ -71,7 +70,7 @@ namespace uTgAuto.Services
                     return;
                 }
 
-                LoggerService.Debug($"\nCHAT ID: {chatID}\nAPI ID: {_auth!.ApiId}\nAPI HASH: {_auth.ApiHash}\nPHONE NUMBER: {_auth.PhoneNumber}");
+                LoggerService.Debug($"\nCHAT ID: User_{_chatID}\nAPI ID: {_auth!.ApiId}\nAPI HASH: {_auth.ApiHash}\nPHONE NUMBER: {_auth.PhoneNumber}");
             }
             catch { }
         }
@@ -118,7 +117,7 @@ namespace uTgAuto.Services
             }
             catch (Exception ex)
             {
-                LoggerService.Warning($"TelegramService.UpdateCoins(): [{ex.GetLine()}] [{ex.Source}]\n\t{ex.Message}");
+                LoggerService.Warning($"User_{_chatID} {ex.GetLine()} {ex.Source}\n\t{ex.Message}");
             }
         }
 
@@ -128,11 +127,11 @@ namespace uTgAuto.Services
             {
                 try
                 {
-                    LoggerService.Debug($"Telegram.Service.Start(): Start is called. \nInformation: {_user!.id}\t{Thread.CurrentThread.ManagedThreadId}\t{Thread.CurrentThread.Name}");
+                    LoggerService.Debug($"User_{_chatID} Telegram.Service.Start(): Start is called. \nInformation: {_user!.id}\t{Thread.CurrentThread.ManagedThreadId}\t{Thread.CurrentThread.Name}");
                 }
                 catch
                 {
-                    LoggerService.Debug($"Telegram.Service.Start(): Start is called.");
+                    LoggerService.Debug($"User_{_chatID} Telegram.Service.Start(): Start is called.");
 
                 }
 
@@ -143,11 +142,11 @@ namespace uTgAuto.Services
                 {
                     try
                     {
-                        LoggerService.Debug($"Telegram.Service.Start()_while(_isRunning): While loop. \nInformation: {_user!.id}\t{_isRunning}\t{_state}\t{_messageIndex}");
+                        LoggerService.Debug($"User_{_chatID} Telegram.Service.Start()_while(_isRunning): While loop. \nInformation: {_user!.id}\t{_isRunning}\t{_state}\t{_messageIndex}");
                     }
                     catch
                     {
-                        LoggerService.Debug($"Telegram.Service.Start()_while(_isRunning): While loop.");
+                        LoggerService.Debug($"User_{_chatID} Telegram.Service.Start()_while(_isRunning): While loop.");
                     }
 
                     try
@@ -193,22 +192,30 @@ namespace uTgAuto.Services
                             }
                             try
                             {
-                                LoggerService.Debug($"Telegram.Service.Start()_TaskDelay({message.SleepTime}): \nInformation: {_user!.id}\t{Thread.CurrentThread.ManagedThreadId}\t{Thread.CurrentThread.Name}");
+                                LoggerService.Debug($"User_{_chatID} Telegram.Service.Start()_TaskDelay({message.SleepTime}): \nInformation: {_user!.id}\t{Thread.CurrentThread.ManagedThreadId}\t{Thread.CurrentThread.Name}");
                             }
                             catch (Exception)
                             {
-                                LoggerService.Debug($"Telegram.Service.Start()_TaskDelay({message.SleepTime})");
+                                LoggerService.Debug($"User_{_chatID} Telegram.Service.Start()_TaskDelay({message.SleepTime})");
                             }
                             await Task.Delay(message.SleepTime);
                         }
                     }
                     catch (Exception ex)
                     {
-                        LoggerService.Warning($"[{ex.GetLine()}] [{ex.Source}]\n\t{ex.Message}");
+                        LoggerService.Warning($"User_{_chatID} [{ex.GetLine()}] [{ex.Source}]\n\t{ex.Message}");
 
                         if (ex.Message.Contains("FLOOD_WAIT"))
                         {
-                            LoggerService.Warning($"FLOOD ERROR. Wait for: {ex.Message.Split("FLOOD_WAIT_")[1].Split("_")[0]}");
+                            LoggerService.Warning($"User_{_chatID} FLOOD ERROR. Wait for: {ex.Message.Split("FLOOD_WAIT_")[1].Split("_")[0]}");
+
+                            _isRunning = false;
+                            _flood = new Result() { Message = ex.Message };
+                            return _flood;
+                        }
+                        else if (ex.Message.Contains("FLOOD"))
+                        {
+                            LoggerService.Warning($"User_{_chatID} PEER_FLOOD ERROR");
 
                             _isRunning = false;
                             _flood = new Result() { Message = ex.Message };
@@ -223,12 +230,12 @@ namespace uTgAuto.Services
             {
                 if (ex.Message.Contains("FLOOD"))
                 {
-                    LoggerService.Warning($"FLOOD ERROR. Wait for: {ex.Message.Split("FLOOD_WAIT_")[1].Split("_")[0]}");
+                    LoggerService.Warning($"User_{_chatID} FLOOD ERROR. Wait for: {ex.Message.Split("FLOOD_WAIT_")[1].Split("_")[0]}");
                     _flood = new Result() { Message = ex.Message };
                     return _flood;
                 }
 
-                LoggerService.Error($"Telegram.Service.Start: [{ex.GetLine()}] [{ex.Source}]\n\t{ex.Message}");
+                LoggerService.Error($"User_{_chatID} Telegram.Service.Start: [{ex.GetLine()}] [{ex.Source}]\n\t{ex.Message}");
             }
 
             return _flood;
@@ -238,10 +245,10 @@ namespace uTgAuto.Services
         {
             try
             {
-                LoggerService.Debug($"Telegram.Service.Connect(): Connect is called.");
+                LoggerService.Debug($"User_{_chatID} Telegram.Service.Connect(): Connect is called.");
 
                 Console.ForegroundColor = ConsoleColor.Gray;
-                LoggerService.Debug("Connecting to Telegram...");
+                LoggerService.Debug($"User_{_chatID} Connecting to Telegram...");
                 Console.ResetColor();
 
                 _client = new Client(_auth!.Config);
@@ -250,7 +257,7 @@ namespace uTgAuto.Services
                 _users[_user.id] = _user;
 
                 Console.ForegroundColor = ConsoleColor.Green;
-                LoggerService.Debug($"Connected as {_user.first_name} {_user.last_name} +{_user.phone}");
+                LoggerService.Debug($"User_{_chatID} Connected as {_user.first_name} {_user.last_name} +{_user.phone}");
                 Console.ResetColor();
 
                 IsConnected = true;
@@ -265,19 +272,19 @@ namespace uTgAuto.Services
             {
                 try
                 {
-                    
+
                     if (ex.Message.Contains("FLOOD"))
                     {
-                        LoggerService.Warning($"FLOOD ERROR. Wait for: {ex.Message.Split("FLOOD_WAIT_")[1].Split("_")[0]}");
+                        LoggerService.Warning($"User_{_chatID} FLOOD ERROR. Wait for: {ex.Message.Split("FLOOD_WAIT_")[1].Split("_")[0]}");
                     }
                     if (ex.Message.Contains("PHONE") == false)
-                        LoggerService.Error($"Telegram.Service.Connect: [{ex.GetLine()}] [{ex.Source}]\n\t{ex.Message}");
+                        LoggerService.Error($"User_{_chatID} Telegram.Service.Connect: [{ex.GetLine()}] [{ex.Source}]\n\t{ex.Message}");
 
                     IsConnected = false;
                     _client!.Dispose();
                     _client = null;
-                    _user = null; 
-                    
+                    _user = null;
+
                     _flood = new Result() { Message = ex.Message };
                     return _flood;
                 }
@@ -311,10 +318,10 @@ namespace uTgAuto.Services
             {
                 if (ex.Message.Contains("FLOOD"))
                 {
-                    LoggerService.Warning($"FLOOD ERROR. Wait for: {ex.Message.Split("FLOOD_WAIT_")[1].Split("_")[0]}");
+                    LoggerService.Warning($"User_{_chatID} FLOOD ERROR. Wait for: {ex.Message.Split("FLOOD_WAIT_")[1].Split("_")[0]}");
                 }
 
-                LoggerService.Error($"Telegram.Service.onUpdate: [{ex.GetLine()}] [{ex.Source}]\n\t{ex.Message}");
+                LoggerService.Error($"User_{_chatID} Telegram.Service.onUpdate: [{ex.GetLine()}] [{ex.Source}]\n\t{ex.Message}");
             }
         }
 
@@ -325,7 +332,7 @@ namespace uTgAuto.Services
                 switch (messageBase)
                 {
                     case TL.Message message:
-                        LoggerService.Trace($"TelegramSerivce.displayMessage(): case TL.Message {message.from_id} -> {message.message} \n\t-> {_waitingMessage}");
+                        LoggerService.Trace($"User_{_chatID} TelegramSerivce.displayMessage(): case TL.Message {message.from_id} -> {message.message} \n\t-> {_waitingMessage}");
                         try
                         {
                             var resolved = await _client.Contacts_ResolveUsername(_messages[_messageIndex]!.Target!.Replace("@", string.Empty));
@@ -333,8 +340,8 @@ namespace uTgAuto.Services
                         }
                         catch { }
 
-                        LoggerService.Trace($"TelegramSerivce.displayMessage(): case TL.Message {message.from_id} -> {message.message} \n\t-> {_waitingMessage}");
-                        LoggerService.Trace($"TelegramSerivce.displayMessage(): if (_parallelMessages ( {_parallelMessages} ) != null)");
+                        LoggerService.Trace($"User_{_chatID} TelegramSerivce.displayMessage(): case TL.Message {message.from_id} -> {message.message} \n\t-> {_waitingMessage}");
+                        LoggerService.Trace($"User_{_chatID} TelegramSerivce.displayMessage(): if (_parallelMessages ( {_parallelMessages} ) != null)");
                         if (_parallelMessages != null)
                         {
                             foreach (var pMessage in _parallelMessages)
@@ -413,8 +420,8 @@ namespace uTgAuto.Services
                         if (_waitingMessage != null
                             && _waitingMessage.Target != null)
                         {
-                            LoggerService.Trace($"TelegramSerivce.displayMessage(): _waitingMessage ( {_waitingMessage} ) != null && _waitingMessage.Target ( {_waitingMessage!.Target} ) != null");
-                            
+                            LoggerService.Trace($"User_{_chatID} TelegramSerivce.displayMessage(): _waitingMessage ( {_waitingMessage} ) != null && _waitingMessage.Target ( {_waitingMessage!.Target} ) != null");
+
                             var resolved = await _client.Contacts_ResolveUsername(_waitingMessage!.Target!.Replace("@", string.Empty));
                             if (Peer(message.peer_id) != Peer(resolved.peer)) return;
                         }
@@ -432,7 +439,7 @@ namespace uTgAuto.Services
 
                         }
 
-                        LoggerService.Trace($"TelegramSerivce.displayMessage():if (_state( {_state} ) == State.Wait && message.peer_id.ID ( {message.Peer.ID} ) != _user?.id ( {_user?.id} ) )");
+                        LoggerService.Trace($"User_{_chatID} TelegramSerivce.displayMessage():if (_state( {_state} ) == State.Wait && message.peer_id.ID ( {message.Peer.ID} ) != _user?.id ( {_user?.id} ) )");
                         if (_state == State.Wait && message.peer_id.ID != _user?.id)
                         {
                             var targets = _waitingMessage?.Targets;
@@ -516,7 +523,7 @@ namespace uTgAuto.Services
                                 if (Peer(message.peer_id) != Peer(resolved.peer)) return;
 
                                 var aiAnswer = await AIService.Ask(_waitingMessage!.Information, message.message);
-                                LoggerService.Trace($"TelegramService.displaymessage(): {aiAnswer} Sent via AI");
+                                LoggerService.Trace($"User_{_chatID} TelegramService.displaymessage(): {aiAnswer} Sent via AI");
                                 await _client!.SendMessageAsync(resolved, aiAnswer, reply_to_msg_id: message.ID);
                             }
                         }
@@ -528,16 +535,16 @@ namespace uTgAuto.Services
             {
                 if (ex.Message.Contains("FLOOD"))
                 {
-                    LoggerService.Warning($"FLOOD ERROR. Wait for: {ex.Message.Split("FLOOD_WAIT_")[1].Split("_")[0]}");
+                    LoggerService.Warning($"User_{_chatID} FLOOD ERROR. Wait for: {ex.Message.Split("FLOOD_WAIT_")[1].Split("_")[0]}");
                 }
 
-                LoggerService.Error($"Telegram.Service.displayMessage: [{ex.GetLine()}] [{ex.Source}]\n\t{ex.Message}");
+                LoggerService.Error($"User_{_chatID} Telegram.Service.displayMessage: [{ex.GetLine()}] [{ex.Source}]\n\t{ex.Message}");
             }
         }
 
-        private string? User(long id) => _users.TryGetValue(id, out var user) ? user.ToString() : $"User {id}";
-        private string? Chat(long id) => _chats.TryGetValue(id, out var chat) ? chat.ToString() : $"Chat {id}";
+        private string? User(long id) => _users.TryGetValue(id, out var user) ? user.ToString() : $"User_{id}";
+        private string? Chat(long id) => _chats.TryGetValue(id, out var chat) ? chat.ToString() : $"Chat_{id}";
         private string? Peer(Peer peer) => peer is null ? null : peer is PeerUser user ? User(user.user_id)
-            : peer is PeerChat or PeerChannel ? Chat(peer.ID) : $"Peer {peer.ID}";
+            : peer is PeerChat or PeerChannel ? Chat(peer.ID) : $"Peer_{peer.ID}";
     }
 }
