@@ -1,6 +1,6 @@
 {
   "version": 2,
-  "dgSpecHash": "s44uO3CcJWmZmIRGsKhtyFtyWaHtScb2C5D80IxNWk5E06AQRcK9n4xEW4i7MPfPFKB6WfBRMCav+7j5siXuwQ==",
+  "dgSpecHash": "8hzrvX8JxTUbhVMW1x3KyMy0aXdXtBaeYqTnKGwZ0jfMo5pF22HcmsmUpUK/wffQEyup/yH6SEpFymY+3+4OYQ==",
   "success": true,
   "projectFilePath": "U:\\Dev\\Both\\uTgAuto\\uTgAuto.Services\\uTgAuto.Services.csproj",
   "expectedPackageFiles": [
@@ -32,9 +32,7 @@
     "C:\\Users\\uaqua\\.nuget\\packages\\system.security.principal.windows\\4.7.0\\system.security.principal.windows.4.7.0.nupkg.sha512",
     "C:\\Users\\uaqua\\.nuget\\packages\\system.windows.extensions\\4.7.0\\system.windows.extensions.4.7.0.nupkg.sha512",
     "C:\\Users\\uaqua\\.nuget\\packages\\telegram.bot\\19.0.0\\telegram.bot.19.0.0.nupkg.sha512",
-    "C:\\Users\\uaqua\\.nuget\\packages\\wtelegramclient\\3.5.1\\wtelegramclient.3.5.1.nupkg.sha512",
-    "C:\\Users\\uaqua\\.nuget\\packages\\microsoft.netcore.app.runtime.linux-x64\\6.0.16\\microsoft.netcore.app.runtime.linux-x64.6.0.16.nupkg.sha512",
-    "C:\\Users\\uaqua\\.nuget\\packages\\microsoft.aspnetcore.app.runtime.linux-x64\\6.0.16\\microsoft.aspnetcore.app.runtime.linux-x64.6.0.16.nupkg.sha512"
+    "C:\\Users\\uaqua\\.nuget\\packages\\wtelegramclient\\3.5.1\\wtelegramclient.3.5.1.nupkg.sha512"
   ],
   "logs": []
 }

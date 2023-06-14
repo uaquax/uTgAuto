@@ -1793,7 +1793,7 @@
       "projectName": "uTgAuto.Services",
       "projectPath": "U:\\Dev\\Both\\uTgAuto\\uTgAuto.Services\\uTgAuto.Services.csproj",
       "packagesPath": "C:\\Users\\uaqua\\.nuget\\packages\\",
-      "outputPath": "U:\\Dev\\Both\\uTgAuto\\uTgAuto.Services\\obj\\",
+      "outputPath": "U:\\Dev\\Both\\uTgAuto\\uTgAuto.Services\\obj\\publish\\linux-x64\\",
       "projectStyle": "PackageReference",
       "configFilePaths": [
         "C:\\Users\\uaqua\\AppData\\Roaming\\NuGet\\NuGet.Config",
@@ -1858,16 +1858,6 @@
         ],
         "assetTargetFallback": true,
         "warn": true,
-        "downloadDependencies": [
-          {
-            "name": "Microsoft.AspNetCore.App.Runtime.linux-x64",
-            "version": "[6.0.16, 6.0.16]"
-          },
-          {
-            "name": "Microsoft.NETCore.App.Runtime.linux-x64",
-            "version": "[6.0.16, 6.0.16]"
-          }
-        ],
         "frameworkReferences": {
           "Microsoft.NETCore.App": {
             "privateAssets": "all"
